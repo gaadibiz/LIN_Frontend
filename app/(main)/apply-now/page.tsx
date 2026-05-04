@@ -104,10 +104,30 @@ function ApplyNowContent() {
         const token = localStorage.getItem("authToken");
         if (token) {
             setIsAuthenticated(true);
+            apiClient.getCompleteProfile().then(res => {
+                if (res && res.profile) {
+                    const p = res.profile as any;
+                    if (p.employment || p.address) {
+                        updateFormData('basicDetails', {
+                            loanAmount: formData.basicDetails.loanAmount || 0,
+                            purposeOfLoan: formData.basicDetails.purposeOfLoan || "",
+                            companyName: p.employment?.employerName || "",
+                            professionName: "",
+                            companyAddress: p.employment?.companyAddress || "",
+                            monthlyIncome: p.employment?.monthlyIncome || 0,
+                            jobStability: p.employment?.stability || "Stable",
+                            currentAddress: p.address?.currentAddress || "",
+                            currentAddressType: p.address?.currentAddressType || "Owner(Self or Family)",
+                            permanentAddress: p.address?.permanentAddress || "",
+                            pinCode: p.address?.postalCode || ""
+                        });
+                    }
+                }
+            }).catch(e => console.error("Failed to load existing profile:", e));
         } else {
             setIsAuthenticated(false);
         }
-    }, []);
+    }, [updateFormData]);
 
     // Show auth gate if not authenticated
     if (isAuthenticated === false) {
