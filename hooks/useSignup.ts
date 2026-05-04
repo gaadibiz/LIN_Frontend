@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api';
 import { SignupFormData } from '@/lib/signup-schemas';
@@ -58,6 +59,7 @@ export function useSignup(): UseSignupReturn {
   const [error, setError] = useState<string | null>(null);
   const [applicationId, setApplicationId] = useState<number | null>(null);
   const [applicationCreatedAt, setApplicationCreatedAt] = useState<string | null>(null);
+  const router = useRouter();
 
   const updateFormData = useCallback((step: keyof SignupFormData, data: any) => {
     setFormData(prev => ({ ...prev, [step]: data }));
@@ -258,8 +260,12 @@ export function useSignup(): UseSignupReturn {
       const lowerError = errorMsg.toLowerCase();
       
       let finalErrorMsg = '';
-      if (lowerError.includes('exist') || lowerError.includes('conflict') || lowerError.includes('already registered with another account') === false && lowerError.includes('already')) {
+      if (lowerError.includes('exist') || lowerError.includes('conflict') || (lowerError.includes('already registered with another account') === false && lowerError.includes('already'))) {
         finalErrorMsg = 'This mobile number is already registered. Please login.';
+        toast.error('Number already registered. Redirecting to login...');
+        setTimeout(() => {
+          router.push('/login');
+        }, 1500);
       } else if (lowerError.includes('pan') || lowerError.includes('another account')) {
         finalErrorMsg = 'This PAN number is already registered with another account.';
         toast.error(finalErrorMsg);
