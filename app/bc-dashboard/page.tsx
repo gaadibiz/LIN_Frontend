@@ -510,7 +510,7 @@ function BCDashboardContent() {
                         />
                     </div>
                     <div className="space-y-0.5">
-                        <p className="text-[17px] font-bold text-gray-900">Call us: +91 98309 18171</p>
+                        <p className="text-[17px] font-bold text-gray-900">Call us: +91 92663 28731</p>
                         <p className="text-[13px] text-gray-500 font-medium">Mon- Fri | 9:00AM to 10:00PM</p>
                     </div>
                 </div>

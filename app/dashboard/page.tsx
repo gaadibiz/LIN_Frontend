@@ -118,7 +118,7 @@ function DashboardContent() {
 
                     // Extract and merge actual loan applications/loans from the profile
                     const allData: any[] = [];
-                    
+
                     if (p.loanApplications && Array.isArray(p.loanApplications)) {
                         p.loanApplications.forEach((app: any) => {
                             allData.push({
@@ -455,31 +455,50 @@ function DashboardContent() {
     );
 
     const renderRepayLoanContent = () => (
-        <div className="max-w-5xl">
+        <div className="max-w-5xl space-y-6">
+            <div className="flex items-center justify-between">
+                <h2 className="text-[28px] font-extrabold text-[#EF4444] tracking-tight">Repay Loan</h2>
+            </div>
+            
             {loanHistoryData.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-12 items-start py-4">
-                    <div className="space-y-2">
-                        <p className="text-[16px] font-bold text-gray-900">Loan number</p>
-                        <p className="text-[15px] font-medium text-gray-500">{loanHistoryData[0].number}</p>
-                    </div>
-                    <div className="space-y-2">
-                        <p className="text-[16px] font-bold text-gray-900">Loan amount</p>
-                        <p className="text-[15px] font-medium text-gray-500">{loanHistoryData[0].amount}</p>
-                    </div>
-                    <div className="flex flex-col items-center space-y-4">
-                        <button className="bg-[#EF4444] text-white px-6 py-3.5 rounded-xl font-bold hover:bg-red-600 transition-all shadow-lg shadow-red-100 w-full text-center text-sm">
-                            Make payment via WhatsApp
-                        </button>
-                        <p className="text-[14px] text-gray-600 font-medium">(WABA link)</p>
-                        <p className="text-sm text-gray-400 font-bold">or</p>
-                        <button className="text-gray-900 font-bold hover:underline">
-                            Net bank details
-                        </button>
-                    </div>
+                <div className="grid gap-6">
+                    {loanHistoryData.map((loan, index) => (
+                        <div key={loan.id || index} className="grid grid-cols-1 md:grid-cols-4 gap-6 md:gap-8 items-center p-6 bg-white rounded-3xl border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(239,68,68,0.08)] transition-all">
+                            <div className="space-y-1">
+                                <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider">Loan Reference</p>
+                                <p className="text-[16px] font-bold text-gray-900">{loan.number}</p>
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider">Amount</p>
+                                <p className="text-[18px] font-extrabold text-[#111827]">{loan.amount}</p>
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider">Status</p>
+                                <span className={`inline-block text-[11px] px-3 py-1 rounded-full font-bold uppercase tracking-wider
+                                    ${loan.status === 'PENDING' ? 'bg-amber-100 text-amber-700' :
+                                        loan.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' :
+                                            loan.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
+                                                'bg-gray-100 text-gray-700'}`}>
+                                    {loan.status}
+                                </span>
+                            </div>
+                            <div className="flex flex-col gap-3">
+                                <button className="bg-[#EF4444] text-white px-5 py-3 rounded-xl font-bold hover:bg-red-600 transition-all shadow-lg shadow-red-100 w-full text-center text-[14px]">
+                                    Repay via WhatsApp
+                                </button>
+                                <button className="text-gray-500 font-bold hover:text-gray-900 transition-colors text-[13px] underline underline-offset-4 decoration-gray-300 hover:decoration-gray-900">
+                                    Net bank details
+                                </button>
+                            </div>
+                        </div>
+                    ))}
                 </div>
             ) : (
-                <div className="py-12 text-center text-gray-500 font-medium">
-                    You do not currently have any active loans requiring repayment.
+                <div className="py-20 text-center bg-gray-50 rounded-3xl border border-gray-100 flex flex-col items-center justify-center">
+                    <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mb-5 shadow-sm border border-gray-100">
+                        <Wallet className="w-8 h-8 text-gray-400" />
+                    </div>
+                    <p className="text-gray-500 font-medium text-lg">You do not currently have any active loans requiring repayment.</p>
                 </div>
             )}
         </div>
@@ -511,8 +530,8 @@ function DashboardContent() {
                                             <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider
                                                 ${loan.status === 'PENDING' ? 'bg-amber-100 text-amber-700' :
                                                     loan.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' :
-                                                    loan.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
-                                                    'bg-gray-100 text-gray-700'}`}>
+                                                        loan.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
+                                                            'bg-gray-100 text-gray-700'}`}>
                                                 {loan.status}
                                             </span>
                                         </td>
@@ -569,7 +588,7 @@ function DashboardContent() {
                         />
                     </div>
                     <div className="space-y-0.5">
-                        <p className="text-[17px] font-bold text-gray-900">Call us: +91 98309 18171</p>
+                        <p className="text-[17px] font-bold text-gray-900">Call us: +91 92663 28731</p>
                         <p className="text-[13px] text-gray-500 font-medium">Mon- Fri | 9:00AM to 10:00PM</p>
                     </div>
                 </div>
