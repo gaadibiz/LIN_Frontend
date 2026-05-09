@@ -128,42 +128,54 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
             <Controller
               control={control}
               name="panNumber"
-              render={({ field }) => (
-                <InputOTP maxLength={10} value={field.value} onChange={(value) => {
-                  let val = value.toUpperCase();
-                  let cleanVal = '';
-                  for (let i = 0; i < val.length; i++) {
-                    const char = val[i];
-                    if (i < 5) {
-                      if (/[A-Z]/.test(char)) cleanVal += char;
-                    } else if (i < 9) {
-                      if (/[0-9]/.test(char)) cleanVal += char;
-                    } else if (i === 9) {
-                      if (/[A-Z]/.test(char)) cleanVal += char;
-                    }
-                  }
-                  field.onChange(cleanVal);
-                }} containerClassName="justify-between w-full gap-2 md:gap-4">
-                  <InputOTPGroup className="flex-1">
-                    <InputOTPSlot index={0} className="w-full h-10 sm:h-12 lg:h-14 text-sm sm:text-base lg:text-lg uppercase" />
-                    <InputOTPSlot index={1} className="w-full h-10 sm:h-12 lg:h-14 text-sm sm:text-base lg:text-lg uppercase" />
-                    <InputOTPSlot index={2} className="w-full h-10 sm:h-12 lg:h-14 text-sm sm:text-base lg:text-lg uppercase" />
-                    <InputOTPSlot index={3} className="w-full h-10 sm:h-12 lg:h-14 text-sm sm:text-base lg:text-lg uppercase" />
-                    <InputOTPSlot index={4} className="w-full h-10 sm:h-12 lg:h-14 text-sm sm:text-base lg:text-lg uppercase" />
-                  </InputOTPGroup>
-                  <InputOTPSeparator className="scale-[0.8] mx-0 px-0" />
-                  <InputOTPGroup className="flex-1">
-                    <InputOTPSlot index={5} className="w-full h-10 sm:h-12 lg:h-14 text-sm sm:text-base lg:text-lg uppercase" />
-                    <InputOTPSlot index={6} className="w-full h-10 sm:h-12 lg:h-14 text-sm sm:text-base lg:text-lg uppercase" />
-                    <InputOTPSlot index={7} className="w-full h-10 sm:h-12 lg:h-14 text-sm sm:text-base lg:text-lg uppercase" />
-                    <InputOTPSlot index={8} className="w-full h-10 sm:h-12 lg:h-14 text-sm sm:text-base lg:text-lg uppercase" />
-                  </InputOTPGroup>
-                  <InputOTPSeparator className="scale-[0.8] mx-0 px-0" />
-                  <InputOTPGroup className="flex-[0.25]">
-                    <InputOTPSlot index={9} className="w-full h-10 sm:h-12 lg:h-14 text-sm sm:text-base lg:text-lg uppercase" />
-                  </InputOTPGroup>
-                </InputOTP>
-              )}
+              render={({ field }) => {
+                const currentLen = field.value?.length || 0;
+                const dynamicInputMode = (currentLen >= 5 && currentLen < 9) ? "numeric" : "text";
+
+                return (
+                  <InputOTP 
+                    maxLength={10} 
+                    value={field.value} 
+                    inputMode={dynamicInputMode}
+                    pattern="^[A-Z0-9]*$"
+                    onChange={(value) => {
+                      let val = value.toUpperCase();
+                      let cleanVal = '';
+                      for (let i = 0; i < val.length; i++) {
+                        const char = val[i];
+                        if (i < 5) {
+                          if (/[A-Z]/.test(char)) cleanVal += char;
+                        } else if (i < 9) {
+                          if (/[0-9]/.test(char)) cleanVal += char;
+                        } else if (i === 9) {
+                          if (/[A-Z]/.test(char)) cleanVal += char;
+                        }
+                      }
+                      field.onChange(cleanVal);
+                    }} 
+                    containerClassName="justify-between w-full gap-2 md:gap-4"
+                  >
+                    <InputOTPGroup className="flex-1">
+                      <InputOTPSlot index={0} className="w-full h-10 sm:h-12 lg:h-14 text-sm sm:text-base lg:text-lg uppercase" />
+                      <InputOTPSlot index={1} className="w-full h-10 sm:h-12 lg:h-14 text-sm sm:text-base lg:text-lg uppercase" />
+                      <InputOTPSlot index={2} className="w-full h-10 sm:h-12 lg:h-14 text-sm sm:text-base lg:text-lg uppercase" />
+                      <InputOTPSlot index={3} className="w-full h-10 sm:h-12 lg:h-14 text-sm sm:text-base lg:text-lg uppercase" />
+                      <InputOTPSlot index={4} className="w-full h-10 sm:h-12 lg:h-14 text-sm sm:text-base lg:text-lg uppercase" />
+                    </InputOTPGroup>
+                    <InputOTPSeparator className="scale-[0.8] mx-0 px-0" />
+                    <InputOTPGroup className="flex-1">
+                      <InputOTPSlot index={5} className="w-full h-10 sm:h-12 lg:h-14 text-sm sm:text-base lg:text-lg uppercase" />
+                      <InputOTPSlot index={6} className="w-full h-10 sm:h-12 lg:h-14 text-sm sm:text-base lg:text-lg uppercase" />
+                      <InputOTPSlot index={7} className="w-full h-10 sm:h-12 lg:h-14 text-sm sm:text-base lg:text-lg uppercase" />
+                      <InputOTPSlot index={8} className="w-full h-10 sm:h-12 lg:h-14 text-sm sm:text-base lg:text-lg uppercase" />
+                    </InputOTPGroup>
+                    <InputOTPSeparator className="scale-[0.8] mx-0 px-0" />
+                    <InputOTPGroup className="flex-[0.25]">
+                      <InputOTPSlot index={9} className="w-full h-10 sm:h-12 lg:h-14 text-sm sm:text-base lg:text-lg uppercase" />
+                    </InputOTPGroup>
+                  </InputOTP>
+                );
+              }}
             />
             {errors.panNumber && (
               <p className="text-red-500 text-sm mt-1">{errors.panNumber.message}</p>
@@ -264,7 +276,14 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
           control={control}
           name="aadhaarNumber"
           render={({ field }) => (
-            <InputOTP maxLength={12} value={field.value} onChange={(val) => field.onChange(val.replace(/\D/g, ''))} containerClassName="justify-between w-full gap-2 md:gap-4">
+            <InputOTP 
+              maxLength={12} 
+              value={field.value} 
+              inputMode="numeric"
+              pattern="^[0-9]*$"
+              onChange={(val) => field.onChange(val.replace(/\D/g, ''))} 
+              containerClassName="justify-between w-full gap-2 md:gap-4"
+            >
               <InputOTPGroup className="flex-1">
                 <InputOTPSlot index={0} className="w-full h-10 sm:h-12 lg:h-14 text-sm sm:text-base lg:text-lg" />
                 <InputOTPSlot index={1} className="w-full h-10 sm:h-12 lg:h-14 text-sm sm:text-base lg:text-lg" />
