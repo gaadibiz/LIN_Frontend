@@ -2,16 +2,15 @@
 
 import React, { useState, useEffect } from "react"
 import { useSignup } from "@/hooks/useSignup"
-import { Step3BasicDetails } from "@/components/signup/Step3BasicDetails"
+import { Step0EligibilityCheck } from "@/components/signup/Step0EligibilityCheck"
 import { Step4DocumentVerification } from "@/components/signup/Step4DocumentVerification"
-import { Step6PhotoGPS } from "@/components/signup/Step6PhotoGPS"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { useAffiliate } from "@/hooks/useAffiliate"
 
-import { AadhaarOtpForm, BasicDetailsForm, PhotoLocationForm, DocumentVerificationForm } from "@/lib/signup-schemas"
+import { EligibilityForm, DocumentVerificationForm } from "@/lib/signup-schemas"
 import { apiClient } from "@/lib/api"
 
 export const dynamic = "force-dynamic";
@@ -23,13 +22,12 @@ interface Step {
 }
 
 const STEPS: Step[] = [
-    { id: 1, title: "Basic details", description: "Get Instant Financial Support You Can Rely On" },
-    { id: 2, title: "Verifying documents", description: "Get Instant Financial Support You Can Rely On" },
-    { id: 3, title: "Photo & Location", description: "Get Instant Financial Support You Can Rely On" },
+    { id: 1, title: "Check Eligibility", description: "Get Instant Financial Support You Can Rely On" },
+    { id: 2, title: "Verifying documents", description: "Upload the required documents for verification" },
 ]
 
 import { Suspense } from "react"
-import { Loader2, Bookmark } from "lucide-react"
+import { Loader2, Bookmark, FileX2, Calendar } from "lucide-react"
 import { formatAppNumber } from "@/lib/utils"
 
 function ApplyNowContent() {
@@ -47,15 +45,12 @@ function ApplyNowContent() {
         submitStep,
     } = useSignup()
 
-    // Adjust currentStep for the apply-now flow
-    // apply-now step 1 = useSignup step 3
-    // apply-now step 2 = useSignup step 4
-    // apply-now step 3 = useSignup step 5
-    // apply-now step 4 = useSignup step 6
     const [internalStep, setInternalStep] = useState(1)
 
     const [applicationSubmitted, setApplicationSubmitted] = useState<boolean>(false)
     const [isDownloadingPdf, setIsDownloadingPdf] = useState<boolean>(false)
+    const [eligibilityStatus, setEligibilityStatus] = useState<'pending' | 'eligible' | 'rejected'>('pending')
+    const [isCheckingEligibility, setIsCheckingEligibility] = useState(false)
 
     const progress = (internalStep / STEPS.length) * 100
 
@@ -71,25 +66,96 @@ function ApplyNowContent() {
         }
     }
 
-    const handleBasicDetailsSubmit = async (data: BasicDetailsForm): Promise<void> => {
-        updateFormData('basicDetails', data)
-        const success = await submitStep(3, data)
-        if (success) {
-            handleNext()
+    const handleEligibilitySubmit = async (data: EligibilityForm) => {
+        setIsCheckingEligibility(true);
+        
+        updateFormData('basicDetails', {
+            ...formData.basicDetails,
+            loanAmount: data.loanAmount,
+            purposeOfLoan: data.purposeOfLoan,
+        });
+
+        try {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'}/api/loans/check-eligibility`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    loanAmount: data.loanAmount,
+                    purposeOfLoan: data.purposeOfLoan,
+                    occupation: data.occupation,
+                    salaryReceivedIn: data.salaryReceivedIn,
+                    monthlySalaryRange: data.monthlySalaryRange,
+                    city: data.city
+                })
+            });
+            const result = await response.json();
+            if (result.eligible) {
+                setEligibilityStatus('eligible');
+                const combinedData = {
+                    ...formData.basicDetails,
+                    loanAmount: data.loanAmount,
+                    purposeOfLoan: data.purposeOfLoan,
+                };
+                const success = await submitStep(3, combinedData);
+                if (success) {
+                    handleNext();
+                } else {
+                    alert("Failed to create application. Please try again.");
+                }
+            } else {
+                setEligibilityStatus('rejected');
+            }
+        } catch (e) {
+            console.error("Eligibility check failed", e);
+            // Local fallback logic
+            if (
+                data.occupation !== "Salaried" ||
+                data.salaryReceivedIn !== "Bank Transfer"
+            ) {
+                setEligibilityStatus('rejected')
+            } else {
+                setEligibilityStatus('eligible')
+                const combinedData = {
+                    ...formData.basicDetails,
+                    loanAmount: data.loanAmount,
+                    purposeOfLoan: data.purposeOfLoan,
+                };
+                const success = await submitStep(3, combinedData);
+                if (success) {
+                    handleNext();
+                } else {
+                    alert("Failed to create application. Please try again.");
+                }
+            }
+        } finally {
+            setIsCheckingEligibility(false);
         }
     }
 
     const handleDocumentVerificationSubmit = async (data: DocumentVerificationForm): Promise<void> => {
         updateFormData('documentVerification', data)
-        const success = await submitStep(4, data)
-        if (success) {
-            handleNext()
+        
+        if (data.panNumber) {
+            try {
+                await apiClient.verifyPan(data.panNumber);
+            } catch (panErr: any) {
+                console.error("PAN Background Sync Error: ", panErr);
+                if (panErr.message?.toLowerCase().includes('already registered') || panErr.message?.toLowerCase().includes('another account')) {
+                    alert('This PAN number is already registered with another account.');
+                    return;
+                }
+            }
         }
-    }
 
-    const handlePhotoLocationSubmit = async (data: PhotoLocationForm): Promise<void> => {
-        updateFormData('photoAndLocationSchema', data)
-        const success = await submitStep(6, data)
+        if (data.aadhaarImage && data.aadhaarImage instanceof File) {
+            try {
+                await apiClient.uploadDocument('AADHAAR', data.aadhaarImage);
+            } catch (err) {
+                console.error("Failed to upload Aadhaar:", err);
+            }
+        }
+
+        const success = await submitStep(4, data)
         if (success) {
             setApplicationSubmitted(true)
         }
@@ -318,32 +384,50 @@ function ApplyNowContent() {
 
                         {/* Form Content */}
                         <div className="space-y-6">
-                            {internalStep === 1 && (
-                                <Step3BasicDetails
-                                    onSubmit={handleBasicDetailsSubmit}
-                                    onBack={() => router.back()}
-                                    formData={formData.basicDetails}
-                                    setFormData={(data) => updateFormData('basicDetails', data)}
-                                    // Default to salaried as a stopgap since occupation moved to eligibility step
-                                    employmentType={"Salaried"}
-                                />
-                            )}
+                            {eligibilityStatus === 'rejected' ? (
+                                <div className="w-full py-8 flex flex-col items-center">
+                                    <div className="w-48 h-48 bg-[#f5f3ff] rounded-full flex items-center justify-center mb-8 relative border-4 border-white shadow-sm">
+                                        <FileX2 className="w-20 h-20 text-[#c2bdf1]" />
+                                        <div className="absolute -bottom-2 -left-2 text-6xl">🥲</div>
+                                        <div className="absolute -bottom-2 -right-2 bg-red-400 rounded-full text-white p-2 shadow-md">
+                                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </div>
+                                    </div>
+                                    <h3 className="text-2xl font-extrabold text-[#312c5b] mb-3 text-center">Application Not Approved</h3>
+                                    <p className="text-[#6b7280] mb-8 text-center text-sm font-medium px-4 max-w-[340px] leading-relaxed">
+                                        As per our credit policy, we are currently unable to process your loan application.
+                                    </p>
+                                    <div className="bg-[#f9f8ff] border border-[#f0edff] w-full max-w-[360px] py-5 px-6 rounded-2xl flex items-center gap-4 mb-6">
+                                        <div className="flex-shrink-0 bg-[#ebe8ff] p-3 rounded-xl">
+                                            <Calendar className="w-6 h-6 text-[#5b4dff]" />
+                                        </div>
+                                        <div className="text-[13px] font-medium text-gray-600 leading-relaxed">
+                                            You may reapply after <span className="font-bold text-[#312c5b]">14 days</span><br/> to reassess your eligibility.
+                                        </div>
+                                    </div>
+                                    <a href="https://api.whatsapp.com/send/?phone=919217364584&text=Hi%20I%20have%20applied%20for%20a%20loan.%20I%20have%20a%20query.%20Please%20assist&type=phone_number&app_absent=0" target="_blank" rel="noopener noreferrer" className="font-bold text-[#5b4dff] hover:text-[#4236cc] hover:underline text-sm transition-colors mt-2 pb-6">
+                                        Chat with us
+                                    </a>
+                                </div>
+                            ) : (
+                                <>
+                                    {internalStep === 1 && (
+                                        <Step0EligibilityCheck
+                                            onSubmit={handleEligibilitySubmit}
+                                            isLoading={isCheckingEligibility}
+                                        />
+                                    )}
 
-                            {internalStep === 2 && (
-                                <Step4DocumentVerification
-                                    onSubmit={handleDocumentVerificationSubmit}
-                                    formData={formData.documentVerification}
-                                    setFormData={(data) => updateFormData('documentVerification', data)}
-                                />
-                            )}
-
-                            {internalStep === 3 && (
-                                <Step6PhotoGPS
-                                    onSubmit={handlePhotoLocationSubmit}
-                                    onBack={handlePrevious}
-                                    formData={formData.photoAndLocationSchema}
-                                    setFormData={(data) => updateFormData('photoAndLocationSchema', data)}
-                                />
+                                    {internalStep === 2 && (
+                                        <Step4DocumentVerification
+                                            onSubmit={handleDocumentVerificationSubmit}
+                                            formData={formData.documentVerification}
+                                            setFormData={(data) => updateFormData('documentVerification', data)}
+                                        />
+                                    )}
+                                </>
                             )}
                         </div>
                     </div>
