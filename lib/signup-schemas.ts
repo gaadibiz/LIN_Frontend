@@ -162,13 +162,9 @@ export const documentVerificationSchema = z.object({
     .refine(file => ["application/pdf"].includes(file.type), "Must be a PDF file")
     .refine(file => file.size <= MAX_5MB, "File size must be ≤ 5MB"),
 
-  panNumber: z.string()
-    .regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, "Invalid PAN number"),
+  panImage: z.instanceof(File).optional(),
 
-  aadhaarImage: z
-    .instanceof(File)
-    .refine(file => file.size <= MAX_5MB, "File size must be ≤ 5MB")
-    .optional(), // Optional initially until uploaded
+  aadhaarImage: z.instanceof(File).optional(),
 });
 
 

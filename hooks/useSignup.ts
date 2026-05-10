@@ -41,8 +41,8 @@ const initialFormData: SignupFormData = {
   documentVerification: {
     payslipFile: createEmptyFile("payslip.pdf", "application/pdf"),
     bankStatementFile: createEmptyFile("bankstatement.pdf", "application/pdf"),
-    panNumber: "",
-    aadhaarImage: undefined
+    panImage: undefined as unknown as File,
+    aadhaarImage: undefined as unknown as File
   },
   aadhaarOtp: { aadhaarOtp: "" },
   photoAndLocationSchema: {
