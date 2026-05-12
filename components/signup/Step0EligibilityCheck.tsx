@@ -117,6 +117,7 @@ export function Step0EligibilityCheck({ onSubmit, isLoading }: Step0Props) {
         </div>
 
         {/* Monthly Salary Range */}
+        {/* Monthly Salary Range */}
         <div>
           <div className="flex items-center mb-3">
             <Wallet className="w-5 h-5 text-blue-500 mr-2" />
@@ -127,7 +128,13 @@ export function Step0EligibilityCheck({ onSubmit, isLoading }: Step0Props) {
 
           <input
             type="number"
-            {...register("monthlySalaryRange")}
+            min="0"
+            {...register("monthlySalaryRange", {
+              min: {
+                value: 0,
+                message: "Salary cannot be negative",
+              },
+            })}
             placeholder="Enter Monthly Salary"
             className="w-full h-12 px-4 shadow-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-red-600 text-gray-700"
           />
