@@ -352,7 +352,17 @@ export function DSAApplicationModal({ isOpen, onClose }: DSAApplicationModalProp
                                                 </div>
                                                 <div className="space-y-2">
                                                     <Label htmlFor="ind-pan">PAN Number</Label>
-                                                    <Input id="ind-pan" maxLength={10} {...step2Form.register("panNumber")} className="uppercase border-gray-200" />
+                                                    <Input
+                                                        id="ind-pan"
+                                                        maxLength={10}
+                                                        {...step2Form.register("panNumber")}
+                                                        className="uppercase border-gray-200"
+                                                        onChange={(e) => {
+                                                            const upper = e.target.value.toUpperCase();
+                                                            step2Form.setValue("panNumber", upper, { shouldValidate: true });
+                                                        }}
+                                                        value={step2Form.watch("panNumber")}
+                                                    />
                                                     {step2Errors.panNumber && (
                                                         <p className="text-xs text-red-500">{step2Errors.panNumber.message}</p>
                                                     )}
@@ -416,7 +426,16 @@ export function DSAApplicationModal({ isOpen, onClose }: DSAApplicationModalProp
                                                 </div>
                                                 <div className="space-y-2">
                                                     <Label htmlFor="firm-gst">GST/Trade License</Label>
-                                                    <Input id="firm-gst" {...step2Form.register("gstLicense" as any)} className="border-gray-200" />
+                                                    <Input
+                                                        id="firm-gst"
+                                                        {...step2Form.register("gstLicense" as any)}
+                                                        className="uppercase border-gray-200"
+                                                        onChange={(e) => {
+                                                            const upper = e.target.value.toUpperCase();
+                                                            step2Form.setValue("gstLicense" as any, upper, { shouldValidate: true });
+                                                        }}
+                                                        value={(step2Form.watch("gstLicense" as any) as string) || ""}
+                                                    />
                                                     {step2Errors.gstLicense && (
                                                         <p className="text-xs text-red-500">{step2Errors.gstLicense.message}</p>
                                                     )}
@@ -424,7 +443,18 @@ export function DSAApplicationModal({ isOpen, onClose }: DSAApplicationModalProp
                                             </div>
                                             <div className="space-y-2">
                                                 <Label htmlFor="firm-pan">Firm&apos;s PAN (Optional)</Label>
-                                                <Input id="firm-pan" maxLength={10} {...step2Form.register("firmPan" as any)} className="uppercase border-gray-200" placeholder="ABCDE1234F" />
+                                                <Input
+                                                    id="firm-pan"
+                                                    maxLength={10}
+                                                    {...step2Form.register("firmPan" as any)}
+                                                    className="uppercase border-gray-200"
+                                                    placeholder="ABCDE1234F"
+                                                    onChange={(e) => {
+                                                        const upper = e.target.value.toUpperCase();
+                                                        step2Form.setValue("firmPan" as any, upper, { shouldValidate: true });
+                                                    }}
+                                                    value={(step2Form.watch("firmPan" as any) as string) || ""}
+                                                />
                                                 {step2Errors.firmPan && (
                                                     <p className="text-xs text-red-500">{step2Errors.firmPan.message}</p>
                                                 )}
