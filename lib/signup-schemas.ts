@@ -49,7 +49,7 @@ export const otpVerificationSchema = z.object({
 
 // Step 2: Personal details
 export const personalDetailsSchema = z.object({
-  panNumber: z.string().length(10, "PAN number must be exactly 10 characters").regex(/^[A-Za-z]{5}\d{4}[A-Za-z]{1}$/, "Invalid PAN format (e.g. ABCDE1234F)"),
+  panNumber: z.string().length(10, "oops Invalid Pan number").regex(/^[A-Za-z]{5}\d{4}[A-Za-z]{1}$/, "oops Invalid Pan number"),
   firstName: z.string()
     .min(2, "First name must be at least 2 characters")
     .max(50, "First name must be less than 50 characters")
@@ -71,7 +71,7 @@ export const personalDetailsSchema = z.object({
       return age >= 18 && age <= 65;
     }, "Age must be between 18 and 65 years"),
   email: z.string().email("Please enter a valid email address"),
-  aadhaarNumber: z.string().length(12, "Aadhaar number must be exactly 12 digits").regex(/^\d{12}$/, "Aadhaar number must contain only numbers"),
+  aadhaarNumber: z.string().length(12, "oops invalid adhar number").regex(/^\d{12}$/, "oops invalid adhar number"),
   panImage: z.instanceof(File, { message: "PAN image is required" }).refine(file => file.size <= MAX_5MB, "File size must be ≤ 5MB"),
   aadhaarImage: z.instanceof(File, { message: "Aadhaar image is required" }).refine(file => file.size <= MAX_5MB, "File size must be ≤ 5MB"),
   salarySlipImage: z.instanceof(File, { message: "Salary slip is required" }).refine(file => file.size <= MAX_5MB, "File size must be ≤ 5MB"),
