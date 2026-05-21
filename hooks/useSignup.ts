@@ -243,10 +243,9 @@ export function useSignup(): UseSignupReturn {
           // Submit documents (salary slips and bank statements) (Used by apply-now flow)
           const documentFormDataSeparate = new FormData();
 
-          if (!data.payslipFile || !(data.payslipFile instanceof File) || data.payslipFile.size === 0) {
-            throw new Error('Please upload your salary slip');
+          if (data.payslipFile && data.payslipFile instanceof File && data.payslipFile.size > 0) {
+            documentFormDataSeparate.append('salarySlips', data.payslipFile);
           }
-          documentFormDataSeparate.append('salarySlips', data.payslipFile);
 
           if (!data.bankStatementFile || !(data.bankStatementFile instanceof File) || data.bankStatementFile.size === 0) {
             throw new Error('Please upload your bank statement');

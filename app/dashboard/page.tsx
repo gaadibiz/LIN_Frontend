@@ -31,6 +31,8 @@ import { useSignup } from "@/hooks/useSignup";
 import { Step0EligibilityCheck } from "@/components/signup/Step0EligibilityCheck";
 import { Step4DocumentVerification } from "@/components/signup/Step4DocumentVerification";
 import { EligibilityForm, DocumentVerificationForm } from "@/lib/signup-schemas";
+import { FileUpload } from "@/components/ui/file-upload";
+import { toast } from "sonner";
 
 export const dynamic = "force-dynamic";
 
@@ -61,37 +63,40 @@ function ReloanFlow() {
                     const p = res.profile as any;
                     if (p.panVerification || p.aadhaarVerification || p.name) {
                         updateFormData('personalDetails', {
-                            ...formData.personalDetails,
                             panNumber: p.panVerification?.panNumber || "",
                             firstName: p.name || "",
                             aadhaarNumber: p.aadhaarVerification?.aadhaarNumber || "",
                             email: p.email || "",
                             dateOfBirth: p.dob ? new Date(p.dob).toISOString().split('T')[0] : "",
                             gender: p.gender === "MALE" ? "Male" : "Female",
+                            consentOne: true,
+                            consentTwo: true
                         });
                     }
-                    if (p.employment || p.address) {
-                        updateFormData('basicDetails', {
-                            loanAmount: formData.basicDetails?.loanAmount || 0,
-                            purposeOfLoan: formData.basicDetails?.purposeOfLoan || "",
-                            companyName: p.employment?.employerName || "",
-                            professionName: "",
-                            companyAddress: p.employment?.companyAddress || "",
-                            monthlyIncome: p.employment?.monthlyIncome || 0,
-                            jobStability: p.employment?.stability || "Stable",
-                            currentAddress: p.address?.currentAddress || "",
-                            currentAddressType: p.address?.currentAddressType || "Owner(Self or Family)",
-                            permanentAddress: p.address?.permanentAddress || "",
-                            pinCode: p.address?.postalCode || ""
-                        });
-                    }
+                    updateFormData('basicDetails', {
+                        loanAmount: 0,
+                        purposeOfLoan: "",
+                        occupation: p.employment?.employmentType === "SALARIED" ? "Salaried" : (p.employment?.employmentType === "SELF_EMPLOYED" ? "Self Employed" : "Salaried"),
+                        monthlySalaryRange: p.employment?.monthlyIncome?.toString() || "",
+                        salaryReceivedIn: "Bank Transfer",
+                        city: p.address?.city || "Delhi",
+                        companyName: p.employment?.employerName || "-",
+                        professionName: "",
+                        companyAddress: p.employment?.companyAddress || "Delhi",
+                        monthlyIncome: p.employment?.monthlyIncome || 30000,
+                        jobStability: p.employment?.stability || "Stable",
+                        currentAddress: p.address?.currentAddress || "Delhi",
+                        currentAddressType: p.address?.currentAddressType || "Owner(Self or Family)",
+                        permanentAddress: p.address?.permanentAddress || "Delhi",
+                        pinCode: p.address?.postalCode || "110001"
+                    });
                 }
             } catch (e) {
                 console.error("Failed to load profile for reloan", e);
             }
         };
         fetchProfile();
-    }, []);
+    }, [updateFormData]);
 
     const handleEligibilitySubmit = async (data: EligibilityForm) => {
         setIsCheckingEligibility(true);
@@ -248,6 +253,8 @@ function ReloanFlow() {
                             <Step0EligibilityCheck
                                 onSubmit={handleEligibilitySubmit}
                                 isLoading={isCheckingEligibility}
+                                formData={formData.basicDetails as any}
+                                isProfileComplete={true}
                             />
                         )}
                         {internalStep === 2 && (
@@ -255,6 +262,7 @@ function ReloanFlow() {
                                 onSubmit={handleDocumentVerificationSubmit}
                                 formData={formData.documentVerification}
                                 setFormData={(data) => updateFormData('documentVerification', data)}
+                                isPayslipOptional={true}
                             />
                         )}
                     </>
@@ -275,6 +283,12 @@ function DashboardContent() {
     const [reloanData, setReloanData] = React.useState({ amount: "", appNumber: "" });
 
     const [editingFields, setEditingFields] = React.useState<Record<string, boolean>>({});
+
+    const [missingDocs, setMissingDocs] = React.useState<string[]>([]);
+    const [hasApplication, setHasApplication] = React.useState(false);
+    const [isProfileComplete, setIsProfileComplete] = React.useState(false);
+    const [uploadFiles, setUploadFiles] = React.useState<Record<string, File | null>>({});
+    const [isUploadingDocs, setIsUploadingDocs] = React.useState(false);
 
     const sidebarItems = [
         { name: "Dashboard", icon: <LayoutDashboard size={20} /> },
@@ -391,6 +405,17 @@ function DashboardContent() {
 
                     setLoanHistoryData(allData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
 
+                    const activeApp = p.loanApplications && p.loanApplications.length > 0;
+                    const profileComplete = !!(p.panVerification?.verified && p.aadhaarVerification?.verified);
+                    const requiredTypes = profileComplete 
+                        ? ['BANK_STATEMENT'] 
+                        : ['PAN', 'AADHAAR', 'PAY_SLIP', 'BANK_STATEMENT'];
+                    const byType = p.documentSummary?.byType || {};
+                    const missing = requiredTypes.filter(type => !(byType[type] > 0));
+
+                    setHasApplication(activeApp);
+                    setIsProfileComplete(profileComplete);
+                    setMissingDocs(missing);
                 }
             } catch (error) {
                 console.error("Failed to fetch dashboard data:", error);
@@ -480,8 +505,103 @@ function DashboardContent() {
         }
     };
 
+    const handleUploadMissingDocs = async () => {
+        const filesToUpload = Object.entries(uploadFiles).filter(([_, file]) => !!file) as [string, File][];
+        if (filesToUpload.length === 0) {
+            toast.error("Please select at least one document to upload.");
+            return;
+        }
+
+        setIsUploadingDocs(true);
+        try {
+            const { apiClient } = await import("@/lib/api");
+            for (const [type, file] of filesToUpload) {
+                await apiClient.uploadDocument(type, file);
+            }
+            toast.success("Documents uploaded successfully!");
+            window.location.reload();
+        } catch (err: any) {
+            console.error(err);
+            toast.error(err.message || "Failed to upload documents. Please try again.");
+        } finally {
+            setIsUploadingDocs(false);
+        }
+    };
+
     const renderDashboardContent = () => (
         <div className="space-y-16">
+            {hasApplication && missingDocs.length > 0 && (
+                <div className="bg-gradient-to-br from-[#FEF2F2] to-[#FFF7ED] border border-red-100 rounded-3xl p-6 md:p-8 shadow-[0_10px_35px_rgb(239,68,68,0.06)] space-y-6">
+                    <div className="flex flex-col md:flex-row items-start justify-between gap-6">
+                        <div className="space-y-2">
+                            <div className="flex items-center gap-2 text-red-600">
+                                <PlusCircle className="w-6 h-6 animate-pulse" />
+                                <h3 className="text-xl font-bold">Action Required: Upload Missing Documents</h3>
+                            </div>
+                            <p className="text-sm text-gray-600 max-w-2xl leading-relaxed">
+                                Your application has been created but cannot be processed or exported to the LOS team because some required documents are missing. Please upload the required documents below to resume and complete your application.
+                            </p>
+                        </div>
+                        {isUploadingDocs && (
+                            <div className="flex items-center gap-2 text-red-600 font-bold bg-white px-4 py-2 rounded-xl shadow-sm border border-red-50 text-sm">
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <span>Uploading...</span>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {missingDocs.map((type) => {
+                            let label = "";
+                            let accept = "";
+                            let subtitle = "";
+                            if (type === 'PAN') {
+                                label = "PAN Card";
+                                accept = ".jpg,.jpeg,.png,.pdf";
+                                subtitle = "Clear photo or PDF";
+                            } else if (type === 'AADHAAR') {
+                                label = "Aadhaar Card";
+                                accept = ".jpg,.jpeg,.png,.pdf";
+                                subtitle = "Front & back in PDF/Image";
+                            } else if (type === 'PAY_SLIP') {
+                                label = "Salary Slip";
+                                accept = ".jpg,.jpeg,.png,.pdf";
+                                subtitle = "Last 3 months slip";
+                            } else if (type === 'BANK_STATEMENT') {
+                                label = "Bank Statement";
+                                accept = ".pdf";
+                                subtitle = "Last 6 months (PDF only)";
+                            }
+
+                            return (
+                                <div key={type} className="border border-dashed border-red-200 bg-white rounded-2xl p-4 flex flex-col justify-between items-center text-center space-y-3 hover:border-red-300 transition-colors">
+                                    <div>
+                                        <p className="font-bold text-gray-800 text-sm">{label}</p>
+                                        <p className="text-[10px] text-gray-400 font-medium">{subtitle}</p>
+                                    </div>
+                                    <FileUpload
+                                        accept={accept}
+                                        onFileChange={(file) => {
+                                            setUploadFiles(prev => ({ ...prev, [type]: file }));
+                                        }}
+                                        file={uploadFiles[type] || null}
+                                    />
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    <div className="flex justify-end pt-2">
+                        <button
+                            onClick={handleUploadMissingDocs}
+                            disabled={isUploadingDocs || Object.values(uploadFiles).filter(Boolean).length === 0}
+                            className="bg-[#EF4444] text-white px-8 py-3.5 rounded-xl font-bold hover:bg-red-600 transition-all shadow-lg shadow-red-100 disabled:opacity-50 disabled:cursor-not-allowed text-[15px]"
+                        >
+                            {isUploadingDocs ? "Uploading documents..." : "Submit Documents"}
+                        </button>
+                    </div>
+                </div>
+            )}
             {/* Personal Details Section */}
             <section className="max-w-5xl">
                 <h2 className="text-xl sm:text-2xl md:text-[28px] font-bold text-[#EF4444] mb-8">Personal Details</h2>

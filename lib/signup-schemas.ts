@@ -155,11 +155,32 @@ export const basicDetailsSchema = z.object({
 export const documentVerificationSchema = z.object({
   payslipFile: z
     .instanceof(File)
+    .refine(file => file.size > 0, "Please upload your salary slip")
     .refine(file => ["application/pdf"].includes(file.type), "Must be a PDF file")
     .refine(file => file.size <= MAX_5MB, "File size must be ≤ 5MB"),
 
   bankStatementFile: z
     .instanceof(File)
+    .refine(file => file.size > 0, "Please upload your bank statement")
+    .refine(file => ["application/pdf"].includes(file.type), "Must be a PDF file")
+    .refine(file => file.size <= MAX_5MB, "File size must be ≤ 5MB"),
+
+  panImage: z.instanceof(File).optional(),
+
+  aadhaarImage: z.instanceof(File).optional(),
+});
+
+export const documentVerificationSchemaOptionalPayslip = z.object({
+  payslipFile: z
+    .instanceof(File)
+    .refine(file => file.size === 0 || ["application/pdf"].includes(file.type), "Must be a PDF file")
+    .refine(file => file.size === 0 || file.size <= MAX_5MB, "File size must be ≤ 5MB")
+    .optional()
+    .nullable(),
+
+  bankStatementFile: z
+    .instanceof(File)
+    .refine(file => file.size > 0, "Please upload your bank statement")
     .refine(file => ["application/pdf"].includes(file.type), "Must be a PDF file")
     .refine(file => file.size <= MAX_5MB, "File size must be ≤ 5MB"),
 
@@ -206,6 +227,7 @@ export type OtpVerificationForm = z.infer<typeof otpVerificationSchema>
 export type PersonalDetailsForm = z.infer<typeof personalDetailsSchema>
 export type BasicDetailsForm = z.infer<typeof basicDetailsSchema>
 export type DocumentVerificationForm = z.infer<typeof documentVerificationSchema>
+export type DocumentVerificationOptionalPayslipForm = z.infer<typeof documentVerificationSchemaOptionalPayslip>
 export type AadhaarOtpForm = z.infer<typeof aadhaarOtpSchema>
 export type PhotoLocationForm = z.infer<typeof photoAndLocationSchema>
 export type SignupFormData = z.infer<typeof signupFormSchema>

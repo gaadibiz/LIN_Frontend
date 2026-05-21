@@ -11,12 +11,35 @@ import { FileText, Wallet, Target, Briefcase, Landmark, MapPin, Banknote, Credit
 interface Step0Props {
   onSubmit: (data: EligibilityForm) => void
   isLoading?: boolean
+  formData?: EligibilityForm
+  isProfileComplete?: boolean
 }
 
-export function Step0EligibilityCheck({ onSubmit, isLoading }: Step0Props) {
-  const { register, handleSubmit, formState: { errors }, watch, setValue } = useForm<EligibilityForm>({
-    resolver: zodResolver(eligibilitySchema)
+export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfileComplete = false }: Step0Props) {
+  const { register, handleSubmit, formState: { errors }, watch, setValue, reset } = useForm<EligibilityForm>({
+    resolver: zodResolver(eligibilitySchema),
+    defaultValues: {
+      loanAmount: formData?.loanAmount || undefined,
+      purposeOfLoan: formData?.purposeOfLoan || "",
+      monthlySalaryRange: formData?.monthlySalaryRange || (formData as any)?.monthlyIncome?.toString() || "",
+      occupation: formData?.occupation || "Salaried",
+      salaryReceivedIn: formData?.salaryReceivedIn || "Bank Transfer",
+      city: formData?.city || "Delhi",
+    }
   })
+
+  React.useEffect(() => {
+    if (formData) {
+      reset({
+        loanAmount: formData.loanAmount || undefined,
+        purposeOfLoan: formData.purposeOfLoan || "",
+        monthlySalaryRange: formData.monthlySalaryRange || (formData as any).monthlyIncome?.toString() || "",
+        occupation: formData.occupation || "Salaried",
+        salaryReceivedIn: formData.salaryReceivedIn || "Bank Transfer",
+        city: formData.city || "Delhi",
+      })
+    }
+  }, [formData, reset])
 
   // We explicitly watch out for specific custom UI behaviors
   const salaryReceivedIn = watch("salaryReceivedIn")
@@ -97,26 +120,29 @@ export function Step0EligibilityCheck({ onSubmit, isLoading }: Step0Props) {
         </div>
 
         {/* Occupation */}
-        <div>
-          <div className="flex items-center mb-3">
-            <Briefcase className="w-5 h-5 text-blue-500 mr-2" />
-            <label className="block text-sm font-bold text-[#1c2b4f]">
-              Occupation
-            </label>
+        {isProfileComplete ? (
+          <input type="hidden" {...register("occupation")} />
+        ) : (
+          <div>
+            <div className="flex items-center mb-3">
+              <Briefcase className="w-5 h-5 text-blue-500 mr-2" />
+              <label className="block text-sm font-bold text-[#1c2b4f]">
+                Occupation
+              </label>
+            </div>
+            <select
+              {...register("occupation")}
+              defaultValue=""
+              className="w-full h-12 px-4 shadow-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-red-600 text-gray-700"
+            >
+              <option value="" disabled>Select Occupation</option>
+              <option value="Salaried">Salaried Employee</option>
+              <option value="Self Employed">Self Employed</option>
+            </select>
+            {errors.occupation && <p className="text-red-500 text-sm mt-1">{errors.occupation.message}</p>}
           </div>
-          <select
-            {...register("occupation")}
-            defaultValue=""
-            className="w-full h-12 px-4 shadow-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-red-600 text-gray-700"
-          >
-            <option value="" disabled>Select Occupation</option>
-            <option value="Salaried">Salaried Employee</option>
-            <option value="Self Employed">Self Employed</option>
-          </select>
-          {errors.occupation && <p className="text-red-500 text-sm mt-1">{errors.occupation.message}</p>}
-        </div>
+        )}
 
-        {/* Monthly Salary Range */}
         {/* Monthly Salary Range */}
         <div>
           <div className="flex items-center mb-3">
@@ -152,64 +178,72 @@ export function Step0EligibilityCheck({ onSubmit, isLoading }: Step0Props) {
         </div>
 
         {/* Salary Received In (Segmented Control style) */}
-        <div>
-          <div className="flex items-center mb-3">
-            <Landmark className="w-5 h-5 text-blue-500 mr-2" />
-            <label className="block text-sm font-bold text-[#1c2b4f]">
-              Salary Received In
-            </label>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { id: 'Cash', icon: Banknote, label: 'Cash' },
-              { id: 'Bank Transfer', icon: Landmark, label: 'Bank Transfer' },
-              { id: 'Cheque', icon: CreditCard, label: 'Cheque' },
-            ].map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                onClick={() => setValue("salaryReceivedIn", option.id as any, { shouldValidate: true })}
-                className={`flex flex-col items-center justify-center p-3 sm:py-4 rounded-xl border sm:text-sm text-xs transition-colors font-medium h-24 ${salaryReceivedIn === option.id
-                  ? 'bg-[#eef2ff] border-[#c7d2fe] text-blue-700'
-                  : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
-                  }`}
-              >
-                <option.icon className={`w-6 h-6 mb-2 ${salaryReceivedIn === option.id ? 'text-blue-600' : 'text-blue-400'}`} />
-                <span className="text-center">{option.label}</span>
-              </button>
-            ))}
-          </div>
-          {/* Hidden input to register it */}
+        {isProfileComplete ? (
           <input type="hidden" {...register("salaryReceivedIn")} />
-          {errors.salaryReceivedIn && <p className="text-red-500 text-sm mt-2">{errors.salaryReceivedIn.message}</p>}
-        </div>
+        ) : (
+          <div>
+            <div className="flex items-center mb-3">
+              <Landmark className="w-5 h-5 text-blue-500 mr-2" />
+              <label className="block text-sm font-bold text-[#1c2b4f]">
+                Salary Received In
+              </label>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { id: 'Cash', icon: Banknote, label: 'Cash' },
+                { id: 'Bank Transfer', icon: Landmark, label: 'Bank Transfer' },
+                { id: 'Cheque', icon: CreditCard, label: 'Cheque' },
+              ].map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setValue("salaryReceivedIn", option.id as any, { shouldValidate: true })}
+                  className={`flex flex-col items-center justify-center p-3 sm:py-4 rounded-xl border sm:text-sm text-xs transition-colors font-medium h-24 ${salaryReceivedIn === option.id
+                    ? 'bg-[#eef2ff] border-[#c7d2fe] text-blue-700'
+                    : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                    }`}
+                >
+                  <option.icon className={`w-6 h-6 mb-2 ${salaryReceivedIn === option.id ? 'text-blue-600' : 'text-blue-400'}`} />
+                  <span className="text-center">{option.label}</span>
+                </button>
+              ))}
+            </div>
+            {/* Hidden input to register it */}
+            <input type="hidden" {...register("salaryReceivedIn")} />
+            {errors.salaryReceivedIn && <p className="text-red-500 text-sm mt-2">{errors.salaryReceivedIn.message}</p>}
+          </div>
+        )}
 
         {/* City */}
-        <div>
-          <div className="flex items-center mb-3 mt-2">
-            <MapPin className="w-5 h-5 text-blue-500 mr-2" />
-            <label className="block text-sm font-bold text-[#1c2b4f]">
-              City
-            </label>
+        {isProfileComplete ? (
+          <input type="hidden" {...register("city")} />
+        ) : (
+          <div>
+            <div className="flex items-center mb-3 mt-2">
+              <MapPin className="w-5 h-5 text-blue-500 mr-2" />
+              <label className="block text-sm font-bold text-[#1c2b4f]">
+                City
+              </label>
+            </div>
+            <select
+              {...register("city")}
+              defaultValue=""
+              className="w-full h-12 px-4 shadow-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-red-600 text-gray-700"
+            >
+              <option value="" disabled>Select City</option>
+              <option value="Mumbai">Mumbai</option>
+              <option value="Delhi">Delhi</option>
+              <option value="Bangalore">Bangalore</option>
+              <option value="Hyderabad">Hyderabad</option>
+              <option value="Ahmedabad">Ahmedabad</option>
+              <option value="Chennai">Chennai</option>
+              <option value="Kolkata">Kolkata</option>
+              <option value="Pune">Pune</option>
+              <option value="Ahmedabad">Ahmedabad</option>
+            </select>
+            {errors.city && <p className="text-red-500 text-sm mt-1">{errors.city.message}</p>}
           </div>
-          <select
-            {...register("city")}
-            defaultValue=""
-            className="w-full h-12 px-4 shadow-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-red-600 text-gray-700"
-          >
-            <option value="" disabled>Select City</option>
-            <option value="Mumbai">Mumbai</option>
-            <option value="Delhi">Delhi</option>
-            <option value="Bangalore">Bangalore</option>
-            <option value="Hyderabad">Hyderabad</option>
-            <option value="Ahmedabad">Ahmedabad</option>
-            <option value="Chennai">Chennai</option>
-            <option value="Kolkata">Kolkata</option>
-            <option value="Pune">Pune</option>
-            <option value="Ahmedabad">Ahmedabad</option>
-          </select>
-          {errors.city && <p className="text-red-500 text-sm mt-1">{errors.city.message}</p>}
-        </div>
+        )}
 
         <div className="pt-4">
           <Button type="submit" className="w-full bg-[#c81e1e] hover:bg-red-700 text-white h-14 rounded-xl text-lg font-bold shadow-md transition-all" disabled={isLoading}>

@@ -199,37 +199,38 @@ function ApplyNowContent() {
                     
                     if (p.panVerification || p.aadhaarVerification || p.name) {
                         updateFormData('personalDetails', {
-                            ...formData.personalDetails,
                             panNumber: p.panVerification?.panNumber || "",
                             firstName: p.name || "",
                             aadhaarNumber: p.aadhaarVerification?.aadhaarNumber || "",
                             email: p.email || "",
                             dateOfBirth: p.dob ? new Date(p.dob).toISOString().split('T')[0] : "",
                             gender: p.gender === "MALE" ? "Male" : "Female",
+                            consentOne: true,
+                            consentTwo: true
                         });
                     }
                     // Check profile completeness (Name + PAN required)
                     const hasName = !!(p.name && p.name.trim().split(/\s+/).length >= 2);
                     const hasPan = !!(p.panVerification?.panNumber);
                     setIsProfileComplete(hasName && hasPan);
-                    if (hasName && hasPan) {
-                        setApplicationSubmitted(true);
-                    }
-                    if (p.employment || p.address) {
-                        updateFormData('basicDetails', {
-                            loanAmount: formData.basicDetails.loanAmount || 0,
-                            purposeOfLoan: formData.basicDetails.purposeOfLoan || "",
-                            companyName: p.employment?.employerName || "",
-                            professionName: "",
-                            companyAddress: p.employment?.companyAddress || "",
-                            monthlyIncome: p.employment?.monthlyIncome || 0,
-                            jobStability: p.employment?.stability || "Stable",
-                            currentAddress: p.address?.currentAddress || "",
-                            currentAddressType: p.address?.currentAddressType || "Owner(Self or Family)",
-                            permanentAddress: p.address?.permanentAddress || "",
-                            pinCode: p.address?.postalCode || ""
-                        });
-                    }
+
+                    updateFormData('basicDetails', {
+                        loanAmount: 0,
+                        purposeOfLoan: "",
+                        occupation: p.employment?.employmentType === "SALARIED" ? "Salaried" : (p.employment?.employmentType === "SELF_EMPLOYED" ? "Self Employed" : "Salaried"),
+                        monthlySalaryRange: p.employment?.monthlyIncome?.toString() || "",
+                        salaryReceivedIn: "Bank Transfer",
+                        city: p.address?.city || "Delhi",
+                        companyName: p.employment?.employerName || "-",
+                        professionName: "",
+                        companyAddress: p.employment?.companyAddress || "Delhi",
+                        monthlyIncome: p.employment?.monthlyIncome || 30000,
+                        jobStability: p.employment?.stability || "Stable",
+                        currentAddress: p.address?.currentAddress || "Delhi",
+                        currentAddressType: p.address?.currentAddressType || "Owner(Self or Family)",
+                        permanentAddress: p.address?.permanentAddress || "Delhi",
+                        pinCode: p.address?.postalCode || "110001"
+                    });
                 }
             }).catch(e => console.error("Failed to load existing profile:", e));
         } else {
@@ -431,7 +432,11 @@ function ApplyNowContent() {
                     {/* Step Header */}
                     <div className="mb-8">
                         <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-xl font-bold text-red-600">{STEPS[internalStep - 1].title}</h3>
+                            <h3 className="text-xl font-bold text-red-600">
+                                {isProfileComplete && internalStep === 2
+                                    ? "Upload Documents"
+                                    : STEPS[internalStep - 1].title}
+                            </h3>
                             <span className="text-sm text-gray-600">{internalStep}/{STEPS.length}</span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2">
@@ -440,7 +445,11 @@ function ApplyNowContent() {
                                 style={{ width: `${progress}%` }}
                             ></div>
                         </div>
-                        <p className="mt-4 text-gray-600 text-sm font-medium">{STEPS[internalStep - 1].description}</p>
+                        <p className="mt-4 text-gray-600 text-sm font-medium">
+                            {isProfileComplete && internalStep === 2
+                                ? "Upload your bank statement to complete application"
+                                : STEPS[internalStep - 1].description}
+                        </p>
                     </div>
 
                     {/* Error Display */}
@@ -485,18 +494,28 @@ function ApplyNowContent() {
                                         <Step0EligibilityCheck
                                             onSubmit={handleEligibilitySubmit}
                                             isLoading={isCheckingEligibility}
+                                            formData={formData.basicDetails as any}
+                                            isProfileComplete={isProfileComplete}
                                         />
                                     )}
 
-                                    
                                     {internalStep === 2 && (
-                                        <Step2PersonalDetails
-                                            onSubmit={handlePersonalDetailsSubmit}
-                                            onGoToDashboard={() => {}}
-                                            formData={formData.personalDetails}
-                                            setFormData={(data) => updateFormData('personalDetails', data)}
-                                            phoneNumber={formData.phoneVerification?.phoneNumber || ""}
-                                        />
+                                        isProfileComplete ? (
+                                            <Step4DocumentVerification
+                                                onSubmit={handleDocumentVerificationSubmit}
+                                                formData={formData.documentVerification}
+                                                setFormData={(data) => updateFormData('documentVerification', data)}
+                                                isPayslipOptional={true}
+                                            />
+                                        ) : (
+                                            <Step2PersonalDetails
+                                                onSubmit={handlePersonalDetailsSubmit}
+                                                onGoToDashboard={() => {}}
+                                                formData={formData.personalDetails}
+                                                setFormData={(data) => updateFormData('personalDetails', data)}
+                                                phoneNumber={formData.phoneVerification?.phoneNumber || ""}
+                                            />
+                                        )
                                     )}
 
                                     

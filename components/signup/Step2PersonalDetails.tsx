@@ -314,8 +314,9 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
             <FileUpload
               accept=".jpg,.jpeg,.png,.pdf"
               onFileChange={handleFileChange("panImage")}
+              file={watch("panImage")}
             />
-            {errors.panImage && <p className="text-red-500 text-xs mt-1 absolute bottom-1 right-0 left-0">Required</p>}
+            {errors.panImage && <p className="text-red-500 text-xs mt-1 absolute bottom-1 right-0 left-0">{(errors.panImage as any).message || "Required"}</p>}
           </div>
 
           {/* Aadhaar Card */}
@@ -326,8 +327,9 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
             <FileUpload
               accept=".jpg,.jpeg,.png,.pdf"
               onFileChange={handleFileChange("aadhaarImage")}
+              file={watch("aadhaarImage")}
             />
-            {errors.aadhaarImage && <p className="text-red-500 text-xs mt-1 absolute bottom-1 right-0 left-0">Required</p>}
+            {errors.aadhaarImage && <p className="text-red-500 text-xs mt-1 absolute bottom-1 right-0 left-0">{(errors.aadhaarImage as any).message || "Required"}</p>}
           </div>
 
           {/* Salary Slip */}
@@ -338,8 +340,9 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
             <FileUpload
               accept=".jpg,.jpeg,.png,.pdf"
               onFileChange={handleFileChange("salarySlipImage")}
+              file={watch("salarySlipImage")}
             />
-            {errors.salarySlipImage && <p className="text-red-500 text-xs mt-1 absolute bottom-1 right-0 left-0">Required</p>}
+            {errors.salarySlipImage && <p className="text-red-500 text-xs mt-1 absolute bottom-1 right-0 left-0">{(errors.salarySlipImage as any).message || "Required"}</p>}
           </div>
 
           {/* Bank Statement */}
@@ -350,8 +353,9 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
             <FileUpload
               accept=".pdf"
               onFileChange={handleFileChange("bankStatementImage")}
+              file={watch("bankStatementImage")}
             />
-            {errors.bankStatementImage && <p className="text-red-500 text-xs mt-1 absolute bottom-1 right-0 left-0">Required</p>}
+            {errors.bankStatementImage && <p className="text-red-500 text-xs mt-1 absolute bottom-1 right-0 left-0">{(errors.bankStatementImage as any).message || "Required"}</p>}
           </div>
         </div>
 

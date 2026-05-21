@@ -8,16 +8,25 @@ interface FileUploadProps extends React.InputHTMLAttributes<HTMLInputElement> {
   onFileChange?: (file: File | null) => void
   accept?: string
   placeholder?: string
+  file?: File | null
 }
 
 const FileUpload = React.forwardRef<HTMLInputElement, FileUploadProps>(
-  ({ className, onFileChange, accept, placeholder = "Click to upload", ...props }, ref) => {
+  ({ className, onFileChange, accept, placeholder = "Click to upload", file, ...props }, ref) => {
     const [fileName, setFileName] = React.useState<string>("")
 
+    React.useEffect(() => {
+      if (file && file.size > 0) {
+        setFileName(file.name)
+      } else {
+        setFileName("")
+      }
+    }, [file])
+
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0] || null
-      setFileName(file ? file.name : "")
-      onFileChange?.(file)
+      const selectedFile = event.target.files?.[0] || null
+      setFileName(selectedFile && selectedFile.size > 0 ? selectedFile.name : "")
+      onFileChange?.(selectedFile)
     }
 
     return (

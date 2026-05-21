@@ -6,17 +6,19 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { FileUpload } from "@/components/ui/file-upload"
-import { documentVerificationSchema, type DocumentVerificationForm } from "@/lib/signup-schemas"
+import { documentVerificationSchema, documentVerificationSchemaOptionalPayslip, type DocumentVerificationForm } from "@/lib/signup-schemas"
 
 interface Step4Props {
   onSubmit: (data: DocumentVerificationForm) => void
   formData: DocumentVerificationForm
   setFormData: (data: DocumentVerificationForm) => void
+  isPayslipOptional?: boolean
 }
 
-export function Step4DocumentVerification({ onSubmit, formData, setFormData }: Step4Props) {
+export function Step4DocumentVerification({ onSubmit, formData, setFormData, isPayslipOptional = false }: Step4Props) {
+  const schema = isPayslipOptional ? documentVerificationSchemaOptionalPayslip : documentVerificationSchema
   const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<DocumentVerificationForm>({
-    resolver: zodResolver(documentVerificationSchema),
+    resolver: zodResolver(schema) as any,
     defaultValues: formData
   })
 
@@ -55,15 +57,16 @@ export function Step4DocumentVerification({ onSubmit, formData, setFormData }: S
             <div className="border border-dashed border-blue-200 bg-[#f8fafe] rounded-xl p-4 text-center group hover:bg-[#f0f4ff] transition-colors relative flex flex-col justify-between">
               <div>
                 <svg className="w-8 h-8 text-blue-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
-                <div className="text-sm font-bold text-[#1c2b4f]">Salary Slip (Last 3 Months) <span className="text-red-500">*</span></div>
+                <div className="text-sm font-bold text-[#1c2b4f]">Salary Slip (Last 3 Months) {!isPayslipOptional && <span className="text-red-500">*</span>}</div>
                 <div className="text-[10px] text-gray-500 mb-3">JPG, PNG or PDF<br />(Max 5MB)</div>
               </div>
               <div className="mt-auto">
                 <FileUpload
                   accept=".jpg,.jpeg,.png,.pdf"
                   onFileChange={(file) => handleFileChange("payslipFile", file)}
+                  file={watch("payslipFile")}
                 />
-                {errors.payslipFile && <p className="text-red-500 text-xs mt-1 absolute bottom-1 right-0 left-0">Required</p>}
+                {errors.payslipFile && <p className="text-red-500 text-xs mt-1 absolute bottom-1 right-0 left-0">{errors.payslipFile.message}</p>}
               </div>
             </div>
 
@@ -78,8 +81,9 @@ export function Step4DocumentVerification({ onSubmit, formData, setFormData }: S
                 <FileUpload
                   accept=".pdf"
                   onFileChange={(file) => handleFileChange("bankStatementFile", file)}
+                  file={watch("bankStatementFile")}
                 />
-                {errors.bankStatementFile && <p className="text-red-500 text-xs mt-1 absolute bottom-1 right-0 left-0">Required</p>}
+                {errors.bankStatementFile && <p className="text-red-500 text-xs mt-1 absolute bottom-1 right-0 left-0">{errors.bankStatementFile.message}</p>}
               </div>
             </div>
           </div>
