@@ -24,7 +24,7 @@ export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfile
       monthlySalaryRange: formData?.monthlySalaryRange || (formData as any)?.monthlyIncome?.toString() || "",
       occupation: formData?.occupation || "Salaried",
       salaryReceivedIn: formData?.salaryReceivedIn || "Bank Transfer",
-      city: formData?.city || "Delhi",
+      city: formData?.city || "",
     }
   })
 
@@ -36,7 +36,7 @@ export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfile
         monthlySalaryRange: formData.monthlySalaryRange || (formData as any).monthlyIncome?.toString() || "",
         occupation: formData.occupation || "Salaried",
         salaryReceivedIn: formData.salaryReceivedIn || "Bank Transfer",
-        city: formData.city || "Delhi",
+        city: formData.city || "",
       })
     }
   }, [formData, reset])
@@ -214,15 +214,11 @@ export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfile
           </div>
         )}
 
-        {/* City */}
-        {isProfileComplete ? (
-          <input type="hidden" {...register("city")} />
-        ) : (
-          <div>
+        <div>
             <div className="flex items-center mb-3 mt-2">
               <MapPin className="w-5 h-5 text-blue-500 mr-2" />
               <label className="block text-sm font-bold text-[#1c2b4f]">
-                City
+                City <span className="text-red-500">*</span>
               </label>
             </div>
             <select
@@ -239,11 +235,9 @@ export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfile
               <option value="Chennai">Chennai</option>
               <option value="Kolkata">Kolkata</option>
               <option value="Pune">Pune</option>
-              <option value="Ahmedabad">Ahmedabad</option>
             </select>
             {errors.city && <p className="text-red-500 text-sm mt-1">{errors.city.message}</p>}
           </div>
-        )}
 
         <div className="pt-4">
           <Button type="submit" className="w-full bg-[#c81e1e] hover:bg-red-700 text-white h-14 rounded-xl text-lg font-bold shadow-md transition-all" disabled={isLoading}>

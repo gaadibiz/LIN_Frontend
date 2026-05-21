@@ -220,16 +220,16 @@ function ApplyNowContent() {
                         occupation: p.employment?.employmentType === "SALARIED" ? "Salaried" : (p.employment?.employmentType === "SELF_EMPLOYED" ? "Self Employed" : "Salaried"),
                         monthlySalaryRange: p.employment?.monthlyIncome?.toString() || "",
                         salaryReceivedIn: "Bank Transfer",
-                        city: p.address?.city || "Delhi",
+                        city: p.address?.city || "",
                         companyName: p.employment?.employerName || "-",
                         professionName: "",
-                        companyAddress: p.employment?.companyAddress || "Delhi",
+                        companyAddress: p.employment?.companyAddress || "",
                         monthlyIncome: p.employment?.monthlyIncome || 30000,
                         jobStability: p.employment?.stability || "Stable",
-                        currentAddress: p.address?.currentAddress || "Delhi",
+                        currentAddress: p.address?.currentAddress || "",
                         currentAddressType: p.address?.currentAddressType || "Owner(Self or Family)",
-                        permanentAddress: p.address?.permanentAddress || "Delhi",
-                        pinCode: p.address?.postalCode || "110001"
+                        permanentAddress: p.address?.permanentAddress || "",
+                        pinCode: p.address?.postalCode || ""
                     });
                 }
             }).catch(e => console.error("Failed to load existing profile:", e));

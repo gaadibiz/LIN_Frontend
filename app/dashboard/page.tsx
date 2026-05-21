@@ -79,16 +79,16 @@ function ReloanFlow() {
                         occupation: p.employment?.employmentType === "SALARIED" ? "Salaried" : (p.employment?.employmentType === "SELF_EMPLOYED" ? "Self Employed" : "Salaried"),
                         monthlySalaryRange: p.employment?.monthlyIncome?.toString() || "",
                         salaryReceivedIn: "Bank Transfer",
-                        city: p.address?.city || "Delhi",
+                        city: p.address?.city || "",
                         companyName: p.employment?.employerName || "-",
                         professionName: "",
-                        companyAddress: p.employment?.companyAddress || "Delhi",
+                        companyAddress: p.employment?.companyAddress || "",
                         monthlyIncome: p.employment?.monthlyIncome || 30000,
                         jobStability: p.employment?.stability || "Stable",
-                        currentAddress: p.address?.currentAddress || "Delhi",
+                        currentAddress: p.address?.currentAddress || "",
                         currentAddressType: p.address?.currentAddressType || "Owner(Self or Family)",
-                        permanentAddress: p.address?.permanentAddress || "Delhi",
-                        pinCode: p.address?.postalCode || "110001"
+                        permanentAddress: p.address?.permanentAddress || "",
+                        pinCode: p.address?.postalCode || ""
                     });
                 }
             } catch (e) {
@@ -177,6 +177,20 @@ function ReloanFlow() {
 
     const handleDocumentVerificationSubmit = async (data: DocumentVerificationForm): Promise<void> => {
         updateFormData('documentVerification', data)
+
+        // Upload individual docs (PAN, Aadhaar) if present — mirrors apply-now flow
+        try {
+            const { apiClient } = await import("@/lib/api");
+            if (data.panImage && data.panImage instanceof File && data.panImage.size > 0) {
+                await apiClient.uploadDocument('PAN', data.panImage);
+            }
+            if (data.aadhaarImage && data.aadhaarImage instanceof File && data.aadhaarImage.size > 0) {
+                await apiClient.uploadDocument('AADHAAR', data.aadhaarImage);
+            }
+        } catch (docErr) {
+            console.error("Individual doc upload error (non-blocking):", docErr);
+        }
+
         const success = await submitStep(4, data)
         if (success) {
             setApplicationSubmitted(true)
