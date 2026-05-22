@@ -33,6 +33,10 @@ function AgentLoginForm() {
     const [resetInput, setResetInput] = useState("")
     const [resetOtp, setResetOtp] = useState("")
     const [newPassword, setNewPassword] = useState("")
+    const [role, setRole] = useState<AgentRole | null>(null)
+    const [isLoading, setIsLoading] = useState(false)
+    const [error, setError] = useState<string | null>(null)
+    const [showPassword, setShowPassword] = useState(false)
 
     const loginForm = useForm<LoginFormData>({
         mode: "onChange",
