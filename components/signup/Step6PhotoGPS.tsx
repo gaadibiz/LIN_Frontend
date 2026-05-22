@@ -24,7 +24,8 @@ export function Step6PhotoGPS({
   const [isLoadingLocation, setIsLoadingLocation] = useState(false)
   const [locationError, setLocationError] = useState<string | null>(null)
   
-  const { handleSubmit, formState: { errors }, setValue, watch } = useForm<PhotoLocationForm>({
+  const { handleSubmit, formState: { errors, isValid }, setValue, watch } = useForm<PhotoLocationForm>({
+    mode: "onChange",
     resolver: zodResolver(photoAndLocationSchema),
     defaultValues: formData
   })
@@ -39,7 +40,7 @@ export function Step6PhotoGPS({
 
   const handleFileChange = (file: File | null) => {
     if (file) {
-      setValue("photoFile", file)
+      setValue("photoFile", file, { shouldValidate: true })
       setFormData({ ...formData, photoFile: file })
     }
   }
@@ -59,8 +60,8 @@ export function Step6PhotoGPS({
         const { latitude, longitude } = position.coords
         const locationString = `${latitude.toFixed(8)}, ${longitude.toFixed(8)}`
         
-        setValue("location", locationString)
-        setValue("autoDetectLocation", true)
+        setValue("location", locationString, { shouldValidate: true })
+        setValue("autoDetectLocation", true, { shouldValidate: true })
         setFormData({ 
           ...formData, 
           autoDetectLocation: true, 
@@ -84,7 +85,7 @@ export function Step6PhotoGPS({
         }
         
         setLocationError(errorMessage)
-        setValue("autoDetectLocation", false)
+        setValue("autoDetectLocation", false, { shouldValidate: true })
         setFormData({ ...formData, autoDetectLocation: false, location: "" })
         setIsLoadingLocation(false)
       },
@@ -100,8 +101,8 @@ export function Step6PhotoGPS({
     if (checked) {
       getLocation()
     } else {
-      setValue("autoDetectLocation", false)
-      setValue("location", "")
+      setValue("autoDetectLocation", false, { shouldValidate: true })
+      setValue("location", "", { shouldValidate: true })
       setFormData({ ...formData, autoDetectLocation: false, location: "" })
       setLocationError(null)
     }
@@ -195,7 +196,7 @@ export function Step6PhotoGPS({
         <Button 
           type="submit" 
           className="w-full bg-red-600 hover:bg-red-700 text-white h-12 text-base font-medium"
-          disabled={isLoadingLocation || !autoDetectLocation || !location}
+          disabled={isLoadingLocation || !isValid}
         >
           Submit application
         </Button>

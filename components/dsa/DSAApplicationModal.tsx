@@ -41,6 +41,7 @@ export function DSAApplicationModal({ isOpen, onClose }: DSAApplicationModalProp
 
     // Step 1 Form
     const step1Form = useForm<DSAStep1Data>({
+        mode: "onChange",
         resolver: zodResolver(dsaStep1Schema),
         defaultValues: {
             fullName: "",
@@ -52,6 +53,7 @@ export function DSAApplicationModal({ isOpen, onClose }: DSAApplicationModalProp
 
     // Step 2 Form
     const step2Form = useForm<DSAStep2Data>({
+        mode: "onChange",
         resolver: zodResolver(dsaStep2Schema),
         defaultValues: {
             type: "individual",
@@ -65,6 +67,7 @@ export function DSAApplicationModal({ isOpen, onClose }: DSAApplicationModalProp
     });
 
     const step2Errors = step2Form.formState.errors as any;
+    const isStep1Valid = step1Form.formState.isValid && (!otpSent || (step1Form.watch("otp")?.length === 6));
 
     useEffect(() => {
         let timer: NodeJS.Timeout;
@@ -257,7 +260,7 @@ export function DSAApplicationModal({ isOpen, onClose }: DSAApplicationModalProp
                                                 <InputOTP
                                                     maxLength={6}
                                                     value={step1Form.watch("otp")}
-                                                    onChange={(value) => step1Form.setValue("otp", value)}
+                                                    onChange={(value) => step1Form.setValue("otp", value, { shouldValidate: true })}
                                                 >
                                                     <InputOTPGroup className="w-full justify-between">
                                                         <InputOTPSlot index={0} className="w-12 h-12 text-lg border-gray-300" />
@@ -286,7 +289,7 @@ export function DSAApplicationModal({ isOpen, onClose }: DSAApplicationModalProp
                                     <Button
                                         type="submit"
                                         className="w-full h-12 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-all shadow-md active:scale-95"
-                                        disabled={isLoading}
+                                        disabled={isLoading || !isStep1Valid}
                                     >
                                         {isLoading ? (
                                             <Loader2 className="w-5 h-5 animate-spin" />
@@ -374,7 +377,7 @@ export function DSAApplicationModal({ isOpen, onClose }: DSAApplicationModalProp
                                                     accept="image/*,application/pdf"
                                                     onFileChange={(file) => {
                                                         if (file) {
-                                                            step2Form.setValue("panPhoto", file as any);
+                                                            step2Form.setValue("panPhoto", file as any, { shouldValidate: true });
                                                             step2Form.clearErrors("panPhoto");
                                                         }
                                                     }}
@@ -467,7 +470,7 @@ export function DSAApplicationModal({ isOpen, onClose }: DSAApplicationModalProp
                                             id="dsa-acceptance"
                                             checked={step2Form.watch("acceptance")}
                                             onCheckedChange={(checked) => {
-                                                step2Form.setValue("acceptance", checked as boolean);
+                                                step2Form.setValue("acceptance", checked as boolean, { shouldValidate: true });
                                             }}
                                             className="mt-1 border-gray-300 data-[state=checked]:bg-red-600 data-[state=checked]:border-red-600"
                                         />
@@ -482,7 +485,7 @@ export function DSAApplicationModal({ isOpen, onClose }: DSAApplicationModalProp
                                     <Button
                                         type="submit"
                                         className="h-12 w-full bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50"
-                                        disabled={isLoading || !step2Form.watch("acceptance")}
+                                        disabled={isLoading || !step2Form.formState.isValid}
                                     >
                                         {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Submit Application"}
                                     </Button>

@@ -34,7 +34,8 @@ export function Step1PhoneVerification({
   serverError
 }: Step1Props) {
   const { getLinkWithRef } = useAffiliate();
-  const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<PhoneVerificationForm>({
+  const { register, handleSubmit, formState: { errors, isValid }, setValue, watch } = useForm<PhoneVerificationForm>({
+    mode: "onChange",
     resolver: zodResolver(otpSent ? otpVerificationSchema : phoneNumberSchema),
     defaultValues: formData
   })
@@ -47,7 +48,7 @@ export function Step1PhoneVerification({
   }
 
   const handleOtpChange = (value: string) => {
-    setValue("otp", value)
+    setValue("otp", value, { shouldValidate: true })
     setFormData({ ...formData, otp: value })
   }
 
@@ -153,7 +154,7 @@ export function Step1PhoneVerification({
         <Button
           type="submit"
           className="w-full bg-red-600 hover:bg-red-700 text-white h-14 rounded-xl text-lg font-bold shadow-md transition-all"
-          disabled={isLoading}
+          disabled={isLoading || !isValid}
         >
           {isLoading ? (otpSent ? 'Verifying...' : 'Sending...') : (otpSent ? 'Verify & Continue' : 'Get OTP')}
         </Button>

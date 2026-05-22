@@ -26,7 +26,8 @@ export function Step5AadhaarOtp({
   formData, 
   setFormData 
 }: Step5Props) {
-  const { handleSubmit, formState: { errors }, setValue } = useForm<AadhaarOtpForm>({
+  const { handleSubmit, formState: { errors, isValid }, setValue } = useForm<AadhaarOtpForm>({
+    mode: "onChange",
     resolver: zodResolver(aadhaarOtpSchema),
     defaultValues: formData
   })
@@ -40,7 +41,7 @@ export function Step5AadhaarOtp({
   }
 
   const handleOtpChange = (value: string) => {
-    setValue("aadhaarOtp", value)
+    setValue("aadhaarOtp", value, { shouldValidate: true })
     setFormData({ ...formData, aadhaarOtp: value })
   }
 
@@ -111,7 +112,7 @@ export function Step5AadhaarOtp({
           )}
         </div>
 
-        <Button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white h-12 text-base font-medium">
+        <Button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white h-12 text-base font-medium" disabled={!isValid}>
           Verify OTP
         </Button>
       </div>

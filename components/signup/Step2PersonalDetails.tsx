@@ -23,7 +23,7 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
   const [isLoading, setIsLoading] = useState(false);
   const [isVerifyingPan, setIsVerifyingPan] = useState(false);
 
-  const { register, handleSubmit, setValue, watch, control, formState: { errors }, trigger } = useForm<PersonalDetailsForm>({
+  const { register, handleSubmit, setValue, watch, control, formState: { errors, isValid }, trigger } = useForm<PersonalDetailsForm>({
     resolver: zodResolver(personalDetailsSchema) as any,
     defaultValues: formData,
     mode: "onChange",
@@ -409,7 +409,7 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
         <Button
           type="submit"
           className="w-full bg-[#c81e1e] hover:bg-red-700 text-white h-14 rounded-xl text-lg font-bold shadow-md transition-all"
-          disabled={isLoading}
+          disabled={isLoading || !isValid}
         >
           {isLoading ? "Submitting..." : "Review & Submit Application"}
         </Button>

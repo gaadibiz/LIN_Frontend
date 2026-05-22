@@ -16,7 +16,8 @@ interface Step0Props {
 }
 
 export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfileComplete = false }: Step0Props) {
-  const { register, handleSubmit, formState: { errors }, watch, setValue, reset } = useForm<EligibilityForm>({
+  const { register, handleSubmit, formState: { errors, isValid }, watch, setValue, reset } = useForm<EligibilityForm>({
+    mode: "onChange",
     resolver: zodResolver(eligibilitySchema),
     defaultValues: {
       loanAmount: formData?.loanAmount || undefined,
@@ -240,7 +241,7 @@ export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfile
           </div>
 
         <div className="pt-4">
-          <Button type="submit" className="w-full bg-[#c81e1e] hover:bg-red-700 text-white h-14 rounded-xl text-lg font-bold shadow-md transition-all" disabled={isLoading}>
+          <Button type="submit" className="w-full bg-[#c81e1e] hover:bg-red-700 text-white h-14 rounded-xl text-lg font-bold shadow-md transition-all" disabled={isLoading || !isValid}>
             {isLoading ? "Checking..." : "Check Loan Eligibility"}
           </Button>
           <div className="text-center mt-4">

@@ -28,12 +28,14 @@ type LoginFormData = z.infer<typeof loginSchema>
 function AgentLoginForm() {
     const router = useRouter()
     const [step, setStep] = useState(1) // 1: Role (Visual), 2: Credentials
-    const [role, setRole] = useState<AgentRole | null>(null)
-    const [isLoading, setIsLoading] = useState(false)
-    const [error, setError] = useState<string | null>(null)
-    const [showPassword, setShowPassword] = useState(false)
+    const [phone, setPhone] = useState("")
+    const [loginOtp, setLoginOtp] = useState("")
+    const [resetInput, setResetInput] = useState("")
+    const [resetOtp, setResetOtp] = useState("")
+    const [newPassword, setNewPassword] = useState("")
 
     const loginForm = useForm<LoginFormData>({
+        mode: "onChange",
         resolver: zodResolver(loginSchema),
         defaultValues: { email: "", password: "" }
     })
@@ -224,6 +226,8 @@ function AgentLoginForm() {
                                                     placeholder="98309 12345"
                                                     className="h-12 flex-1"
                                                     maxLength={10}
+                                                    value={phone}
+                                                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
                                                 />
                                             </div>
                                         </div>
@@ -231,7 +235,6 @@ function AgentLoginForm() {
 
                                     <Button
                                         onClick={async () => {
-                                            const phone = (document.getElementById('login-phone') as HTMLInputElement).value;
                                             if (!phone || phone.length !== 10) return toast.error("Please enter a valid 10-digit number");
 
                                             setIsLoading(true);
@@ -248,7 +251,7 @@ function AgentLoginForm() {
                                             }
                                         }}
                                         className="w-full bg-blue-600 hover:bg-blue-700 text-white h-12 rounded-lg font-semibold shadow-lg shadow-blue-100"
-                                        disabled={isLoading}
+                                        disabled={isLoading || phone.length !== 10}
                                     >
                                         {isLoading ? <Loader2 className="animate-spin mr-2" /> : "Send Login OTP"}
                                     </Button>
@@ -286,7 +289,7 @@ function AgentLoginForm() {
 
                                 <div className="space-y-8">
                                     <div className="flex justify-center py-4">
-                                        <InputOTP maxLength={6} onChange={(val) => (window as any).loginOtp = val}>
+                                        <InputOTP maxLength={6} value={loginOtp} onChange={setLoginOtp}>
                                             <InputOTPGroup className="gap-2">
                                                 <InputOTPSlot index={0} className="rounded-xl border-2 h-14 w-11 text-xl font-bold" />
                                                 <InputOTPSlot index={1} className="rounded-xl border-2 h-14 w-11 text-xl font-bold" />
@@ -300,15 +303,14 @@ function AgentLoginForm() {
 
                                     <Button
                                         onClick={async () => {
-                                            const otp = (window as any).loginOtp;
                                             const phone = localStorage.getItem('loginPhone');
 
-                                            if (!otp || otp.length !== 6) return toast.error("Please enter 6-digit OTP");
+                                            if (!loginOtp || loginOtp.length !== 6) return toast.error("Please enter 6-digit OTP");
                                             if (!phone) return setStep(2);
 
                                             setIsLoading(true);
                                             try {
-                                                const response = await apiClient.verifyPartnerLoginOtp(phone, otp);
+                                                const response = await apiClient.verifyPartnerLoginOtp(phone, loginOtp);
                                                 toast.success("Welcome back!");
 
                                                 // Handle redirection logic
@@ -325,7 +327,7 @@ function AgentLoginForm() {
                                             }
                                         }}
                                         className="w-full bg-blue-600 hover:bg-blue-700 text-white h-14 rounded-xl font-bold text-lg shadow-xl shadow-blue-100"
-                                        disabled={isLoading}
+                                        disabled={isLoading || loginOtp.length !== 6}
                                     >
                                         {isLoading ? <Loader2 className="animate-spin mr-2" /> : "Verify & Sign In"}
                                     </Button>
@@ -376,7 +378,7 @@ function AgentLoginForm() {
                                         </div>
                                     </div>
 
-                                    <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white h-12 rounded-lg font-semibold" disabled={isLoading}>
+                                    <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white h-12 rounded-lg font-semibold" disabled={isLoading || !loginForm.formState.isValid}>
                                         {isLoading ? <Loader2 className="animate-spin mr-2" /> : "Login Securely"}
                                     </Button>
                                 </form>
@@ -409,22 +411,22 @@ function AgentLoginForm() {
                                                 id="reset-input"
                                                 placeholder="Enter email or phone"
                                                 className="h-12"
+                                                value={resetInput}
+                                                onChange={(e) => setResetInput(e.target.value)}
                                             />
                                         </div>
                                     </div>
 
                                     <Button
                                         onClick={async () => {
-                                            const inputElement = document.getElementById('reset-input') as HTMLInputElement;
-                                            const input = inputElement?.value;
-                                            if (!input) return toast.error("Please enter email or phone");
+                                            if (!resetInput) return toast.error("Please enter email or phone");
 
                                             setIsLoading(true);
                                             try {
-                                                const res = await apiClient.forgotPartnerPassword(input);
+                                                const res = await apiClient.forgotPartnerPassword(resetInput);
                                                 toast.success(res.message);
                                                 // Store the phone number for next step if returned, otherwise assume input was phone
-                                                localStorage.setItem('resetPhone', (res as any).phone || input);
+                                                localStorage.setItem('resetPhone', (res as any).phone || resetInput);
                                                 setStep(4);
                                             } catch (err: any) {
                                                 toast.error(err.message || "Failed to send OTP");
@@ -433,7 +435,7 @@ function AgentLoginForm() {
                                             }
                                         }}
                                         className="w-full bg-blue-600 hover:bg-blue-700 text-white h-12 rounded-lg font-semibold"
-                                        disabled={isLoading}
+                                        disabled={isLoading || !resetInput}
                                     >
                                         {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Send OTP"}
                                     </Button>
@@ -455,7 +457,7 @@ function AgentLoginForm() {
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                                 Enter OTP (Master: 261102)
                                             </label>
-                                            <InputOTP maxLength={6} onChange={(val) => (window as any).otpVal = val}>
+                                            <InputOTP maxLength={6} value={resetOtp} onChange={setResetOtp}>
                                                 <InputOTPGroup>
                                                     <InputOTPSlot index={0} />
                                                     <InputOTPSlot index={1} />
@@ -476,19 +478,18 @@ function AgentLoginForm() {
                                                 type="password"
                                                 placeholder="Enter new password"
                                                 className="h-12"
+                                                value={newPassword}
+                                                onChange={(e) => setNewPassword(e.target.value)}
                                             />
                                         </div>
                                     </div>
 
                                     <Button
                                         onClick={async () => {
-                                            const otp = (window as any).otpVal;
-                                            const newPassElement = document.getElementById('new-password') as HTMLInputElement;
-                                            const newPass = newPassElement?.value;
                                             const phone = localStorage.getItem('resetPhone');
 
-                                            if (!otp || otp.length !== 6) return toast.error("Please enter valid OTP");
-                                            if (!newPass) return toast.error("Please enter new password");
+                                            if (!resetOtp || resetOtp.length !== 6) return toast.error("Please enter valid OTP");
+                                            if (!newPassword) return toast.error("Please enter new password");
                                             if (!phone) {
                                                 toast.error("Session expired, please start again");
                                                 setStep(3);
@@ -497,7 +498,7 @@ function AgentLoginForm() {
 
                                             setIsLoading(true);
                                             try {
-                                                const res = await apiClient.resetPartnerPassword(phone, otp, newPass);
+                                                const res = await apiClient.resetPartnerPassword(phone, resetOtp, newPassword);
                                                 toast.success("Password reset successful! Please login.");
                                                 setStep(2);
                                             } catch (err: any) {
@@ -507,7 +508,7 @@ function AgentLoginForm() {
                                             }
                                         }}
                                         className="w-full bg-blue-600 hover:bg-blue-700 text-white h-12 rounded-lg font-semibold"
-                                        disabled={isLoading}
+                                        disabled={isLoading || resetOtp.length !== 6 || !newPassword}
                                     >
                                         {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Reset Password"}
                                     </Button>

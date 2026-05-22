@@ -42,7 +42,10 @@ function LoginForm() {
 
   const [otpValue, setOtpValue] = useState("")
 
+  const [consentChecked, setConsentChecked] = useState(false)
+
   const step1Form = useForm<LoginStep1Form>({
+    mode: "onChange",
     resolver: zodResolver(loginStep1Schema),
     defaultValues: {
       phoneNumber: "",
@@ -50,6 +53,7 @@ function LoginForm() {
   })
 
   const otpForm = useForm<LoginOtpForm>({
+    mode: "onChange",
     resolver: zodResolver(loginOtpSchema),
     defaultValues: {
       otp: ""
@@ -122,7 +126,7 @@ function LoginForm() {
 
   const handleOtpChange = (value: string) => {
     setOtpValue(value)
-    otpForm.setValue("otp", value)
+    otpForm.setValue("otp", value, { shouldValidate: true })
     setError(null) // Clear error when user types
   }
 
@@ -215,6 +219,8 @@ function LoginForm() {
                       type="checkbox"
                       id="consent"
                       className="mt-1 h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+                      checked={consentChecked}
+                      onChange={(e) => setConsentChecked(e.target.checked)}
                       required
                     />
                     <label htmlFor="consent" className="text-sm text-gray-600">
@@ -231,6 +237,7 @@ function LoginForm() {
                   <Button
                     type="submit"
                     className="w-full bg-red-600 hover:bg-red-700 text-white h-12"
+                    disabled={!step1Form.formState.isValid || !consentChecked}
                   >
                     Get OTP
                   </Button>
@@ -327,7 +334,7 @@ function LoginForm() {
                   <Button
                     type="submit"
                     className="w-full bg-red-600 hover:bg-red-700 text-white h-12"
-                    disabled={isVerifying}
+                    disabled={isVerifying || !otpForm.formState.isValid}
                   >
                     {isVerifying ? (
                       <>

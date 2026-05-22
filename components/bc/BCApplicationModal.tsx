@@ -41,6 +41,7 @@ export function BCApplicationModal({ isOpen, onClose }: BCApplicationModalProps)
 
     // Step 1 Form
     const step1Form = useForm<BCStep1Data>({
+        mode: "onChange",
         resolver: zodResolver(bcStep1Schema),
         defaultValues: {
             fullName: "",
@@ -52,6 +53,7 @@ export function BCApplicationModal({ isOpen, onClose }: BCApplicationModalProps)
 
     // Step 2 Form
     const step2Form = useForm<BCStep2Data>({
+        mode: "onChange",
         resolver: zodResolver(bcStep2Schema),
         defaultValues: {
             type: "individual",
@@ -65,6 +67,7 @@ export function BCApplicationModal({ isOpen, onClose }: BCApplicationModalProps)
     });
 
     const step2Errors = step2Form.formState.errors as any;
+    const isStep1Valid = step1Form.formState.isValid && (!otpSent || (step1Form.watch("otp")?.length === 6));
 
     useEffect(() => {
         let timer: NodeJS.Timeout;
@@ -254,7 +257,7 @@ export function BCApplicationModal({ isOpen, onClose }: BCApplicationModalProps)
                                                 <InputOTP
                                                     maxLength={6}
                                                     value={step1Form.watch("otp")}
-                                                    onChange={(value) => step1Form.setValue("otp", value)}
+                                                    onChange={(value) => step1Form.setValue("otp", value, { shouldValidate: true })}
                                                 >
                                                     <InputOTPGroup className="w-full justify-between">
                                                         <InputOTPSlot index={0} className="w-12 h-12 text-lg border-gray-300" />
@@ -283,7 +286,7 @@ export function BCApplicationModal({ isOpen, onClose }: BCApplicationModalProps)
                                     <Button
                                         type="submit"
                                         className="w-full h-12 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-all shadow-md active:scale-95"
-                                        disabled={isLoading}
+                                        disabled={isLoading || !isStep1Valid}
                                     >
                                         {isLoading ? (
                                             <Loader2 className="w-5 h-5 animate-spin" />
@@ -361,7 +364,7 @@ export function BCApplicationModal({ isOpen, onClose }: BCApplicationModalProps)
                                                     accept="image/*,application/pdf"
                                                     onFileChange={(file) => {
                                                         if (file) {
-                                                            step2Form.setValue("panPhoto", file as any);
+                                                            step2Form.setValue("panPhoto", file as any, { shouldValidate: true });
                                                             step2Form.clearErrors("panPhoto");
                                                         }
                                                     }}
@@ -434,7 +437,7 @@ export function BCApplicationModal({ isOpen, onClose }: BCApplicationModalProps)
                                             id="bc-acceptance"
                                             checked={step2Form.watch("acceptance")}
                                             onCheckedChange={(checked) => {
-                                                step2Form.setValue("acceptance", checked as boolean);
+                                                step2Form.setValue("acceptance", checked as boolean, { shouldValidate: true });
                                             }}
                                             className="mt-1 border-gray-300 data-[state=checked]:bg-red-600 data-[state=checked]:border-red-600"
                                         />
@@ -449,7 +452,7 @@ export function BCApplicationModal({ isOpen, onClose }: BCApplicationModalProps)
                                     <Button
                                         type="submit"
                                         className="h-12 w-full bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50"
-                                        disabled={isLoading || !step2Form.watch("acceptance")}
+                                        disabled={isLoading || !step2Form.formState.isValid}
                                     >
                                         {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Submit Application"}
                                     </Button>

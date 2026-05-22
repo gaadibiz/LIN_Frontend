@@ -19,7 +19,7 @@ interface Step3Props {
 }
 
 export function Step3BasicDetails({ onSubmit, onBack, formData, setFormData, employmentType }: Step3Props) {
-  const { register, handleSubmit, formState: { errors }, setValue, watch, trigger } = useForm<BasicDetailsForm>({
+  const { register, handleSubmit, formState: { errors, isValid }, setValue, watch, trigger } = useForm<BasicDetailsForm>({
     resolver: zodResolver(basicDetailsSchema),
     defaultValues: formData,
     mode: "onChange"
@@ -323,6 +323,7 @@ export function Step3BasicDetails({ onSubmit, onBack, formData, setFormData, emp
         <Button
           type="submit"
           className="w-full bg-red-600 hover:bg-red-700 text-white h-12 text-base font-medium"
+          disabled={!isValid}
         >
           Next
         </Button>

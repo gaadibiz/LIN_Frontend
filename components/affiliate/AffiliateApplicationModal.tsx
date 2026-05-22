@@ -40,6 +40,7 @@ export function AffiliateApplicationModal({ isOpen, onClose }: AffiliateApplicat
 
     // Step 1 Form
     const step1Form = useForm<AffiliateStep1Data>({
+        mode: "onChange",
         resolver: zodResolver(affiliateStep1Schema),
         defaultValues: {
             fullName: "",
@@ -51,12 +52,15 @@ export function AffiliateApplicationModal({ isOpen, onClose }: AffiliateApplicat
 
     // Step 2 Form
     const step2Form = useForm<AffiliateStep2Data>({
+        mode: "onChange",
         resolver: zodResolver(affiliateStep2Schema),
         defaultValues: {
             panNumber: "",
             acceptance: false,
         },
     });
+
+    const isStep1Valid = step1Form.formState.isValid && (!otpSent || (step1Form.watch("otp")?.length === 6));
 
     useEffect(() => {
         let timer: NodeJS.Timeout;
@@ -248,7 +252,7 @@ export function AffiliateApplicationModal({ isOpen, onClose }: AffiliateApplicat
                                                 <InputOTP
                                                     maxLength={6}
                                                     value={step1Form.watch("otp")}
-                                                    onChange={(value) => step1Form.setValue("otp", value)}
+                                                    onChange={(value) => step1Form.setValue("otp", value, { shouldValidate: true })}
                                                 >
                                                     <InputOTPGroup className="w-full justify-between">
                                                         <InputOTPSlot index={0} className="w-12 h-12 text-lg border-gray-300" />
@@ -277,7 +281,7 @@ export function AffiliateApplicationModal({ isOpen, onClose }: AffiliateApplicat
                                     <Button
                                         type="submit"
                                         className="w-full h-12 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-all shadow-md active:scale-95"
-                                        disabled={isLoading}
+                                        disabled={isLoading || !isStep1Valid}
                                     >
                                         {isLoading ? (
                                             <Loader2 className="w-5 h-5 animate-spin" />
@@ -315,7 +319,7 @@ export function AffiliateApplicationModal({ isOpen, onClose }: AffiliateApplicat
                                                     placeholder="Click to upload PAN photo"
                                                     onFileChange={(file) => {
                                                         if (file) {
-                                                            step2Form.setValue("panPhoto", file);
+                                                            step2Form.setValue("panPhoto", file, { shouldValidate: true });
                                                             step2Form.clearErrors("panPhoto");
                                                         }
                                                     }}
@@ -331,7 +335,7 @@ export function AffiliateApplicationModal({ isOpen, onClose }: AffiliateApplicat
                                                 id="acceptance"
                                                 checked={step2Form.watch("acceptance")}
                                                 onCheckedChange={(checked) => {
-                                                    step2Form.setValue("acceptance", checked as boolean);
+                                                    step2Form.setValue("acceptance", checked as boolean, { shouldValidate: true });
                                                 }}
                                                 className="mt-1 border-gray-300 data-[state=checked]:bg-red-600 data-[state=checked]:border-red-600"
                                             />
@@ -351,7 +355,7 @@ export function AffiliateApplicationModal({ isOpen, onClose }: AffiliateApplicat
                                         <Button
                                             type="submit"
                                             className="h-12 w-full bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            disabled={isLoading || !step2Form.watch("acceptance")}
+                                            disabled={isLoading || !step2Form.formState.isValid}
                                         >
                                             {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Submit Application"}
                                         </Button>

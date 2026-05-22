@@ -273,18 +273,21 @@ export default function PartnerForm() {
             </form.Field>
 
             {/* Submit Button */}
-            <form.Subscribe selector={(state) => [state.isSubmitting]}>
-                {([isSubmitting]) => (
-                    <Button
-                        type="submit"
-                        disabled={isSubmitting}
-                        variant={"default"}
-                        size={"lg"}
-                        className="w-full hover:bg-red-600 text-base font-semibold tracking-wide uppercase disabled:opacity-50"
-                    >
-                        {submitted ? "Submitted!" : "CONNECT NOW"}
-                    </Button>
-                )}
+            <form.Subscribe selector={(state) => [state.isSubmitting, state.values]}>
+                {([isSubmitting, values]) => {
+                    const isValid = partnerSchema.safeParse(values).success;
+                    return (
+                        <Button
+                            type="submit"
+                            disabled={isSubmitting || !isValid}
+                            variant={"default"}
+                            size={"lg"}
+                            className="w-full hover:bg-red-600 text-base font-semibold tracking-wide uppercase disabled:opacity-50"
+                        >
+                            {submitted ? "Submitted!" : "CONNECT NOW"}
+                        </Button>
+                    );
+                }}
             </form.Subscribe>
         </form>
     );

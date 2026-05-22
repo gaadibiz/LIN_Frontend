@@ -80,16 +80,19 @@ function RegisterAgentContent() {
     const [partnerType, setPartnerType] = useState<PartnerType>(null)
 
     const adminForm = useForm<AdminForm>({
+        mode: "onChange",
         resolver: zodResolver(adminSchema),
         defaultValues: { email: "", password: "" },
     })
 
     const affiliateForm = useForm<z.infer<typeof affiliateAdminSchema>>({
+        mode: "onChange",
         resolver: zodResolver(affiliateAdminSchema),
         defaultValues: { fullName: "", email: "", phoneNumber: "", panNumber: "" },
     })
 
     const dsaForm = useForm<z.infer<typeof dsaAdminSchema>>({
+        mode: "onChange",
         resolver: zodResolver(dsaAdminSchema),
         defaultValues: {
             fullName: "", email: "", phoneNumber: "", type: "individual",
@@ -99,6 +102,7 @@ function RegisterAgentContent() {
     })
 
     const bcForm = useForm<z.infer<typeof bcAdminSchema>>({
+        mode: "onChange",
         resolver: zodResolver(bcAdminSchema),
         defaultValues: {
             fullName: "", email: "", phoneNumber: "", type: "individual",
@@ -279,7 +283,7 @@ Please change your password after your first login.
                                     <Label className="text-sm font-bold text-gray-700 ml-1">Password</Label>
                                     <Input type="password" {...adminForm.register("password")} className="h-14 rounded-2xl border-gray-100 bg-gray-50/50 focus:bg-white" />
                                 </div>
-                                <Button type="submit" disabled={isLoading} className="w-full h-14 bg-red-600 hover:bg-red-700 text-white font-bold rounded-2xl shadow-lg mt-4 transition-all active:scale-[0.98]">
+                                <Button type="submit" disabled={isLoading || !adminForm.formState.isValid} className="w-full h-14 bg-red-600 hover:bg-red-700 text-white font-bold rounded-2xl shadow-lg mt-4 transition-all active:scale-[0.98]">
                                     {isLoading ? <Loader2 className="animate-spin" /> : "Verify & Unlock"}
                                 </Button>
                             </form>
@@ -360,7 +364,7 @@ Please change your password after your first login.
                                         <Label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">PAN Card Document</Label>
                                         <FileUpload onFileChange={() => { }} placeholder="Upload copies of original documents" />
                                     </div>
-                                    <Button type="submit" disabled={isLoading} className="w-full h-14 bg-red-600 hover:bg-red-700 text-white font-bold rounded-2xl shadow-xl transition-all">
+                                    <Button type="submit" disabled={isLoading || !affiliateForm.formState.isValid} className="w-full h-14 bg-red-600 hover:bg-red-700 text-white font-bold rounded-2xl shadow-xl transition-all">
                                         {isLoading ? <Loader2 className="animate-spin" /> : "Complete Registration"}
                                     </Button>
                                 </form>
@@ -459,7 +463,7 @@ Please change your password after your first login.
                                         </div>
                                     </Tabs>
 
-                                    <Button type="submit" disabled={isLoading} className="w-full h-14 bg-red-600 hover:bg-red-700 text-white font-bold rounded-2xl shadow-xl transition-all">
+                                    <Button type="submit" disabled={isLoading || !(partnerType === "dsa" ? dsaForm.formState.isValid : bcForm.formState.isValid)} className="w-full h-14 bg-red-600 hover:bg-red-700 text-white font-bold rounded-2xl shadow-xl transition-all">
                                         {isLoading ? <Loader2 className="animate-spin" /> : `Onboard ${partnerType === "dsa" ? "DSA" : "BC"} Now`}
                                     </Button>
                                 </form>

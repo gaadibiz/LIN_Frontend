@@ -17,10 +17,13 @@ interface Step4Props {
 
 export function Step4DocumentVerification({ onSubmit, formData, setFormData, isPayslipOptional = false }: Step4Props) {
   const schema = isPayslipOptional ? documentVerificationSchemaOptionalPayslip : documentVerificationSchema
-  const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<DocumentVerificationForm>({
+  const { register, handleSubmit, formState: { errors, isValid }, setValue, watch } = useForm<DocumentVerificationForm>({
+    mode: "onChange",
     resolver: zodResolver(schema) as any,
     defaultValues: formData
   })
+
+  const [consentChecked, setConsentChecked] = React.useState(false)
 
   const handleFormSubmit = (data: DocumentVerificationForm) => {
     setFormData(data)
@@ -29,7 +32,7 @@ export function Step4DocumentVerification({ onSubmit, formData, setFormData, isP
 
   const handleFileChange = (field: keyof DocumentVerificationForm, file: File | null) => {
     if (file) {
-      setValue(field, file as File)
+      setValue(field, file as File, { shouldValidate: true })
       setFormData({ ...formData, [field]: file })
     }
   }
@@ -98,6 +101,8 @@ export function Step4DocumentVerification({ onSubmit, formData, setFormData, isP
             type="checkbox"
             id="consent"
             className="mt-1 h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+            checked={consentChecked}
+            onChange={(e) => setConsentChecked(e.target.checked)}
             required
           />
           <label htmlFor="consent" className="text-xs text-gray-500">
@@ -114,7 +119,7 @@ export function Step4DocumentVerification({ onSubmit, formData, setFormData, isP
         <Button 
           type="submit" 
           className="w-full bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-          disabled={!watch("bankStatementFile") || watch("bankStatementFile")?.size === 0 || (!isPayslipOptional && (!watch("payslipFile") || watch("payslipFile")?.size === 0))}
+          disabled={!isValid || !consentChecked}
         >
           Next
         </Button>

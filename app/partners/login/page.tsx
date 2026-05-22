@@ -96,7 +96,7 @@ export default function PartnerLoginPage() {
                         {/* Submit Button */}
                         <Button
                             type="submit"
-                            disabled={loading}
+                            disabled={loading || !email || !password}
                             className="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-3 rounded-xl transition-all"
                         >
                             {loading ? 'Logging in...' : 'Login to Dashboard'}
