@@ -24,7 +24,7 @@ const createEmptyFile = (name: string, type: string): File => {
 };
 
 // CRM Integration Helper
-const submitLeadToKylas = async (personalData: any, phone: string, basicDetails: any) => {
+const submitLeadToKylas = async (personalData: any, phone: string, basicDetails: any, leadId?: number): Promise<number | undefined> => {
   try {
     const loanAmount = basicDetails.loanAmount || 0;
     const salary = Number(basicDetails.monthlyIncome) || Number(basicDetails.monthlySalaryRange) || 30000;
@@ -89,17 +89,39 @@ const submitLeadToKylas = async (personalData: any, phone: string, basicDetails:
       return;
     }
 
-    await fetch(`${url}/v1/leads/`, {
-      method: "POST",
-      headers: {
-        "api-key": apiKey,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(kylasPayload)
-    });
-    console.log("✅ Lead submitted successfully to Kylas");
-  } catch (err) {
-    console.error("⚠️ Failed to submit lead to Kylas:", err);
+    if (leadId) {
+      // Update existing lead
+      const getRes = await fetch(`${url}/v1/leads/${leadId}`, {
+        method: "GET",
+        headers: { "api-key": apiKey }
+      });
+      if (!getRes.ok) throw new Error(`GET failed: ${getRes.status}`);
+      const existingLead = await getRes.json();
+      
+      const updatedLead = { ...existingLead, ...kylasPayload };
+      const res = await fetch(`${url}/v1/leads/${leadId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "api-key": apiKey },
+        body: JSON.stringify(updatedLead)
+      });
+      if (!res.ok) throw new Error(`PUT failed: ${res.status}`);
+      console.log(`✅ Kylas Lead ${leadId} updated successfully`);
+      return leadId;
+    } else {
+      // Create new lead
+      const res = await fetch(`${url}/v1/leads/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "api-key": apiKey },
+        body: JSON.stringify(kylasPayload)
+      });
+      if (!res.ok) throw new Error(`POST failed: ${res.status}`);
+      const data = await res.json();
+      console.log("✅ Lead submitted to Kylas successfully:", data);
+      return data.id; // Return the created lead ID
+    }
+  } catch (error) {
+    console.error("❌ Error submitting to Kylas API:", error);
+    return undefined;
   }
 };
 
@@ -171,6 +193,13 @@ export function useSignup(): UseSignupReturn {
               }, 1500);
               return false;
             }
+            
+            // CRM Integration: Create initial lead
+            const leadId = await submitLeadToKylas(formData.personalDetails, data.phoneNumber, formData.basicDetails);
+            if (leadId) {
+              updateFormData('kylasLeadId', leadId);
+            }
+            
             return true;
           }
 
@@ -189,7 +218,7 @@ export function useSignup(): UseSignupReturn {
           });
 
           // CRM Integration: Push lead after successful user creation
-          submitLeadToKylas(data, formData.phoneVerification.phoneNumber, formData.basicDetails);
+          submitLeadToKylas(data, formData.phoneVerification.phoneNumber, formData.basicDetails, formData.kylasLeadId);
 
           // === STAGE 2: Submit KYC for Application Creation (For 3-Step Flow) ===
           // Parse monthly income from direct input
@@ -320,6 +349,13 @@ export function useSignup(): UseSignupReturn {
             setApplicationId((kycResponseSeparate as any).data.application.id);
             setApplicationCreatedAt((kycResponseSeparate as any).data.application.createdAt);
           }
+          
+          // CRM Integration: Create initial lead for apply-now flow
+          const leadId3 = await submitLeadToKylas(formData.personalDetails, formData.phoneVerification?.phoneNumber || "", data);
+          if (leadId3) {
+             updateFormData('kylasLeadId', leadId3);
+          }
+          
           return true;
 
         case 4:
@@ -387,7 +423,7 @@ export function useSignup(): UseSignupReturn {
           });
 
           // CRM Integration: Push lead after successful user creation for apply-now flow
-          submitLeadToKylas(data, formData.phoneVerification?.phoneNumber || "", formData.basicDetails);
+          submitLeadToKylas(data, formData.phoneVerification?.phoneNumber || "", formData.basicDetails, formData.kylasLeadId);
 
           // Verify Aadhaar
           if (data.aadhaarNumber) {

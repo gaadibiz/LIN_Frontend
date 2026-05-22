@@ -217,7 +217,8 @@ export const signupFormSchema = z.object({
   basicDetails: basicDetailsSchema,
   documentVerification: documentVerificationSchema,
   aadhaarOtp: aadhaarOtpSchema,
-  photoAndLocationSchema: photoAndLocationSchema
+  photoAndLocationSchema: photoAndLocationSchema,
+  kylasLeadId: z.number().optional()
 })
 
 export type EligibilityForm = z.infer<typeof eligibilitySchema>
