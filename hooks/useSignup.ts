@@ -22,8 +22,26 @@ const createEmptyFile = (name: string, type: string): File => {
   const blob = new Blob([], { type });
   return new File([blob], name, { type });
 };
-
 // CRM Integration Helper
+const getKylasSalaryRange = (salary: number) => {
+  if (salary <= 50000) return "₹35,000 - ₹50,000";
+  if (salary <= 100000) return "₹50,000 - ₹1,00,000";
+  return "₹1,00,000 and above";
+};
+
+const getKylasLoanAmountRange = (amount: number) => {
+  if (amount <= 5000) return "₹5,000";
+  if (amount <= 10000) return "₹10,000";
+  if (amount <= 15000) return "₹15,000";
+  if (amount <= 20000) return "₹20,000";
+  if (amount <= 25000) return "₹25,000";
+  if (amount <= 30000) return "₹30,000";
+  if (amount <= 40000) return "₹40,000";
+  if (amount <= 50000) return "₹50,000";
+  if (amount <= 75000) return "₹75,000";
+  return "₹1,00,000";
+};
+
 const submitLeadToKylas = async (personalData: any, phone: string, basicDetails: any, leadId?: number): Promise<number | undefined> => {
   try {
     const loanAmount = basicDetails.loanAmount || 0;
@@ -74,8 +92,9 @@ const submitLeadToKylas = async (personalData: any, phone: string, basicDetails:
       products: [],
       campaign: 2688093,
       customFieldValues: {
-        cfLoanAmount: Number(loanAmount) || null,
-        cfSalary: Number(salary) || null,
+        cfLoanAmount: getKylasLoanAmountRange(Number(loanAmount)),
+        cfSalary: getKylasSalaryRange(Number(salary)),
+        cfCibilScore: basicDetails.cibilScore || "750+ (Excellent)", // Passing a sample CIBIL
       },
       source: 2650535,
       subSource: "Website Lead",
