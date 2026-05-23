@@ -216,29 +216,30 @@ export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfile
         )}
 
         <div>
-            <div className="flex items-center mb-3 mt-2">
-              <MapPin className="w-5 h-5 text-blue-500 mr-2" />
-              <label className="block text-sm font-bold text-[#1c2b4f]">
-                City <span className="text-red-500">*</span>
-              </label>
-            </div>
-            <select
-              {...register("city")}
-              defaultValue=""
-              className="w-full h-12 px-4 shadow-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-red-600 text-gray-700"
-            >
-              <option value="" disabled>Select City</option>
-              <option value="Mumbai">Mumbai</option>
-              <option value="Delhi">Delhi</option>
-              <option value="Bangalore">Bangalore</option>
-              <option value="Hyderabad">Hyderabad</option>
-              <option value="Ahmedabad">Ahmedabad</option>
-              <option value="Chennai">Chennai</option>
-              <option value="Kolkata">Kolkata</option>
-              <option value="Pune">Pune</option>
-            </select>
-            {errors.city && <p className="text-red-500 text-sm mt-1">{errors.city.message}</p>}
+          <div className="flex items-center mb-3 mt-2">
+            <MapPin className="w-5 h-5 text-blue-500 mr-2" />
+            <label className="block text-sm font-bold text-[#1c2b4f]">
+              City <span className="text-red-500">*</span>
+            </label>
           </div>
+          <select
+            {...register("city")}
+            defaultValue=""
+            className="w-full h-12 px-4 shadow-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-red-600 text-gray-700"
+          >
+            <option value="" disabled>Select City</option>
+            <option value="Mumbai">Mumbai</option>
+            <option value="Delhi">Delhi</option>
+            <option value="Bangalore">Bangalore</option>
+            <option value="Hyderabad">Hyderabad</option>
+            <option value="Ahmedabad">Ahmedabad</option>
+            <option value="Chennai">Chennai</option>
+            <option value="Kolkata">Kolkata</option>
+            <option value="Pune">Pune</option>
+            <option value="Others">Others</option>
+          </select>
+          {errors.city && <p className="text-red-500 text-sm mt-1">{errors.city.message}</p>}
+        </div>
 
         <div className="pt-4">
           <Button type="submit" className="w-full bg-[#c81e1e] hover:bg-red-700 text-white h-14 rounded-xl text-lg font-bold shadow-md transition-all" disabled={isLoading || !isValid}>
