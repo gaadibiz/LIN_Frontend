@@ -407,7 +407,7 @@ function SignupContent() {
                     >
                       {isCompleted ? <CheckCircle2 className="w-5 h-5" /> : step.id}
                     </div>
-                    <div className="w-[80px] text-center mt-2">
+                    <div className="whitespace-nowrap text-center mt-2">
                       <span className={`text-[10px] font-bold leading-tight ${isCompleted || isCurrent ? 'text-gray-800' : 'text-gray-400'
                         }`}>
                         {step.title}
