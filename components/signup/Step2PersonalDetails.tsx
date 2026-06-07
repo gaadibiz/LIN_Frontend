@@ -125,8 +125,12 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
     setAadhaarError(null);
     try {
       const { apiClient } = await import('@/lib/api');
-      await apiClient.validateAadhaar(digits);
+      const res = await apiClient.validateAadhaar(digits);
       setAadhaarStatus('valid');
+      // If Surepass was degraded, we still accept but note it
+      if ((res as any).degraded) {
+        setAadhaarError(null); // clear any old error
+      }
     } catch (e: any) {
       setAadhaarStatus('invalid');
       setAadhaarError('Please enter a valid Aadhaar card number.');
