@@ -125,11 +125,14 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
     setAadhaarError(null);
     try {
       const { apiClient } = await import('@/lib/api');
-      await apiClient.validateAadhaar(digits);
+      const response = await apiClient.validateAadhaar(digits);
+      if (response && response.success === false) {
+        throw new Error(response.message || 'Please enter a valid Aadhaar card number.');
+      }
       setAadhaarStatus('valid');
     } catch (e: any) {
       setAadhaarStatus('invalid');
-      setAadhaarError('Please enter a valid Aadhaar card number.');
+      setAadhaarError(e.message || 'Please enter a valid Aadhaar card number.');
     }
   };
 
