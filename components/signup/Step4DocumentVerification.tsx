@@ -78,7 +78,7 @@ export function Step4DocumentVerification({ onSubmit, formData, setFormData, isP
               <div>
                 <svg className="w-8 h-8 text-blue-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z"></path></svg>
                 <div className="text-sm font-bold text-[#1c2b4f]">Bank Statement (Last 6 Months) <span className="text-red-500">*</span></div>
-                <div className="text-[10px] text-gray-500 mb-3">PDF Only<br />(Max 10MB)<br />Note: Please provide un-protected PDFs</div>
+                <div className="text-[10px] text-gray-500 mb-3">PDF Only<br />(Max 10MB)<br />Note: All bank statements should be unprotected</div>
               </div>
               <div className="mt-auto">
                 <FileUpload

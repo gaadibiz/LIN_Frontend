@@ -406,7 +406,7 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
           <div className="border border-dashed border-blue-200 bg-[#f8fafe] rounded-xl p-4 text-center group hover:bg-[#f0f4ff] transition-colors relative">
             <FileText className="w-8 h-8 text-blue-300 mx-auto mb-2" />
             <div className="text-sm font-bold text-[#1c2b4f]">Aadhaar Card Upload <span className="text-red-500">*</span></div>
-            <div className="text-[10px] text-gray-500 mb-3">JPG, PNG or PDF<br />(Max 5MB)</div>
+            <div className="text-[10px] text-gray-500 mb-3">JPG, PNG or PDF<br />(Max 5MB)<br />Note: Please upload a single PDF containing both side Aadhaar image</div>
             <FileUpload
               accept=".jpg,.jpeg,.png,.pdf"
               onFileChange={handleFileChange("aadhaarImage")}
@@ -432,7 +432,7 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
           <div className="border border-dashed border-blue-200 bg-[#f8fafe] rounded-xl p-4 text-center group hover:bg-[#f0f4ff] transition-colors relative">
             <svg className="w-8 h-8 text-blue-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z"></path></svg>
             <div className="text-sm font-bold text-[#1c2b4f]">Bank Statement (latest 6-month Bank Statement) <span className="text-red-500">*</span></div>
-            <div className="text-[10px] text-gray-500 mb-3">PDF Only<br />(Max 10MB)</div>
+            <div className="text-[10px] text-gray-500 mb-3">PDF Only<br />(Max 10MB)<br />Note: All bank statements should be unprotected</div>
             <FileUpload
               accept=".pdf"
               onFileChange={handleFileChange("bankStatementImage")}

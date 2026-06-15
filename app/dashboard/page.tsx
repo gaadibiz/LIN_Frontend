@@ -576,7 +576,7 @@ function DashboardContent() {
                             } else if (type === 'AADHAAR') {
                                 label = "Aadhaar Card";
                                 accept = ".jpg,.jpeg,.png,.pdf";
-                                subtitle = "Front & back in PDF/Image";
+                                subtitle = "Single PDF containing both side Aadhaar image";
                             } else if (type === 'PAY_SLIP') {
                                 label = "Salary Slip";
                                 accept = ".jpg,.jpeg,.png,.pdf";
@@ -584,7 +584,7 @@ function DashboardContent() {
                             } else if (type === 'BANK_STATEMENT') {
                                 label = "Bank Statement";
                                 accept = ".pdf";
-                                subtitle = "Last 6 months (PDF only)";
+                                subtitle = "Last 6 months (Unprotected PDF only)";
                             }
 
                             return (
