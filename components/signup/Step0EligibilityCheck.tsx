@@ -26,7 +26,6 @@ export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfile
       occupation: formData?.occupation || "Salaried",
       salaryReceivedIn: formData?.salaryReceivedIn || "Bank Transfer",
       city: formData?.city || "",
-      currentAddressType: (formData as any)?.currentAddressType || "",
     }
   })
 
@@ -39,7 +38,6 @@ export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfile
         occupation: formData.occupation || "Salaried",
         salaryReceivedIn: formData.salaryReceivedIn || "Bank Transfer",
         city: formData.city || "",
-        currentAddressType: (formData as any).currentAddressType || "",
       })
     }
   }, [formData, reset])
@@ -241,25 +239,6 @@ export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfile
             <option value="Others">Others</option>
           </select>
           {errors.city && <p className="text-red-500 text-sm mt-1">{errors.city.message}</p>}
-        </div>
-
-        <div>
-          <div className="flex items-center mb-3 mt-2">
-            <MapPin className="w-5 h-5 text-blue-500 mr-2" />
-            <label className="block text-sm font-bold text-[#1c2b4f]">
-              Address Type <span className="text-red-500">*</span>
-            </label>
-          </div>
-          <select
-            {...register("currentAddressType")}
-            defaultValue=""
-            className="w-full h-12 px-4 shadow-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-red-600 text-gray-700"
-          >
-            <option value="" disabled>Select Address Type</option>
-            <option value="Owner(Self or Family)">Owner(Self or Family)</option>
-            <option value="Rented">Rented</option>
-          </select>
-          {errors.currentAddressType && <p className="text-red-500 text-sm mt-1">{errors.currentAddressType?.message as string}</p>}
         </div>
 
         <div className="pt-4">

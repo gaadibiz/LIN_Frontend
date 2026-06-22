@@ -36,7 +36,7 @@ const initialFormData: SignupFormData = {
     companyName: "", professionName: "",
     companyAddress: "", monthlyIncome: 0,
     jobStability: "" as "Very unstable" | "Somewhat unstable" | "Neutral / moderate" | "Stable" | "Very stable",
-    currentAddress: "", currentAddressType: "" as "Owner(Self or Family)" | "Rented",
+    currentAddress: "",
     permanentAddress: "", addressProof: undefined, pinCode: "",
     occupation: "", monthlySalaryRange: "", salaryReceivedIn: "", city: ""
   },

@@ -38,7 +38,6 @@ export interface BasicDetailsData {
   monthlyIncome: number;
   loanAmount: number;
   purposeOfLoan: string;
-  currentAddressType: 'Owner(Self or Family)' | 'Rented';
   currentAddress: string;
   permanentAddress: string;
   pinCode: string;

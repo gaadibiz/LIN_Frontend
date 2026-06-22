@@ -257,24 +257,6 @@ export function Step3BasicDetails({ onSubmit, onBack, formData, setFormData, emp
 
           <div className="w-full">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Current address type <span className="text-red-600">*</span>
-            </label>
-            <Select value={watch("currentAddressType")} onValueChange={(value) => handleSelectChange("currentAddressType", value)}>
-              <SelectTrigger className="w-full h-12">
-                <SelectValue placeholder="Select" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Owner(Self or Family)">Owner(Self or Family)</SelectItem>
-                <SelectItem value="Rented">Rented</SelectItem>
-              </SelectContent>
-            </Select>
-            {errors.currentAddressType && (
-              <p className="text-red-500 text-sm mt-1">{errors.currentAddressType.message}</p>
-            )}
-          </div>
-
-          <div className="w-full">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
               Permanent address <span className="text-red-600">*</span>
             </label>
             <Input

@@ -11,9 +11,6 @@ export const eligibilitySchema = z.object({
   monthlySalaryRange: z.string().min(1, "Please enter your monthly salary"),
   salaryReceivedIn: z.enum(["Cash", "Bank Transfer", "Cheque"]),
   city: z.string().min(1, "Please select your city"),
-  currentAddressType: z.enum(["Owner(Self or Family)", "Rented"], {
-    error: "Please select your address type"
-  }),
 }).superRefine((data, ctx) => {
   if (data.occupation === "Self Employed" && data.salaryReceivedIn === "Bank Transfer") {
     ctx.addIssue({
@@ -123,7 +120,6 @@ export const basicDetailsSchema = z.object({
   currentAddress: z.string()
     .min(10, "Current address must be at least 10 characters")
     .max(200, "Current address must be less than 200 characters"),
-  currentAddressType: z.enum(["Owner(Self or Family)", "Rented"]),
   permanentAddress: z.string()
     .min(10, "Permanent address must be at least 10 characters")
     .max(200, "Permanent address must be less than 200 characters"),
