@@ -25,6 +25,9 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
   const [isVerifyingPan, setIsVerifyingPan] = useState(false);
   const [aadhaarStatus, setAadhaarStatus] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
   const [aadhaarError, setAadhaarError] = useState<string | null>(null);
+  
+  const [showNameMismatch, setShowNameMismatch] = useState(false);
+  const [nameMismatchConfirmed, setNameMismatchConfirmed] = useState(false);
 
   const { register, handleSubmit, setValue, watch, control, formState: { errors, isValid }, trigger } = useForm<PersonalDetailsForm>({
     resolver: zodResolver(personalDetailsSchema) as any,
@@ -39,6 +42,22 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
   };
 
   const onValidSubmit = async (data: PersonalDetailsForm) => {
+    // Fuzzy matching logic
+    const panName = `${data.firstName || ''} ${data.middleName || ''} ${data.lastName || ''}`.trim().toLowerCase();
+    const aadhaarName = (data.aadhaarName || '').trim().toLowerCase();
+    
+    if (panName && aadhaarName) {
+      const panWords = panName.split(/\s+/);
+      const aadhaarWords = aadhaarName.split(/\s+/);
+      const hasOverlap = panWords.some(word => aadhaarWords.includes(word));
+      
+      if (!hasOverlap && !nameMismatchConfirmed) {
+        setShowNameMismatch(true);
+        toast.error("Name on PAN and Aadhaar do not match. Please confirm it's you.");
+        return;
+      }
+    }
+
     setIsLoading(true);
     setFormData(data);
     await onSubmit(data); // Defer the backend API calls to page.tsx's handler
@@ -378,6 +397,15 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
         }
       </div>
 
+      <div className="w-full mt-4">
+        <label className="block text-sm font-bold text-[#1c2b4f] mb-2">Name as per Aadhaar <span className="text-red-500">*</span></label>
+        <div className="relative">
+          <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Input {...register("aadhaarName")} className="pl-10 h-11 border-gray-300 shadow-sm focus-visible:ring-blue-500" placeholder="Enter exactly as printed on Aadhaar" />
+        </div>
+        {errors.aadhaarName && <p className="text-red-500 text-sm mt-1">{errors.aadhaarName.message}</p>}
+      </div>
+
       {/* Document Upload section */}
       <div className="pt-4 border-t border-gray-100">
         <div className="flex items-start space-x-3 mb-4">
@@ -487,6 +515,25 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
       </div>
 
 
+
+      {showNameMismatch && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg mb-4">
+          <p className="text-sm text-red-800 font-medium mb-2">
+            The name on your Aadhaar card does not match the name on your PAN card.
+          </p>
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={nameMismatchConfirmed}
+              onChange={(e) => setNameMismatchConfirmed(e.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+            />
+            <span className="text-sm text-red-700">
+              I confirm that both the PAN and Aadhaar belong to me and I accept responsibility for this mismatch.
+            </span>
+          </label>
+        </div>
+      )}
 
       <div className="pt-6">
         <Button

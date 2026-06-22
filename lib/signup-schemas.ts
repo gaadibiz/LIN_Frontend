@@ -11,6 +11,9 @@ export const eligibilitySchema = z.object({
   monthlySalaryRange: z.string().min(1, "Please enter your monthly salary"),
   salaryReceivedIn: z.enum(["Cash", "Bank Transfer", "Cheque"]),
   city: z.string().min(1, "Please select your city"),
+  currentAddressType: z.enum(["Owner(Self or Family)", "Rented"], {
+    error: "Please select your address type"
+  }),
 }).superRefine((data, ctx) => {
   if (data.occupation === "Self Employed" && data.salaryReceivedIn === "Bank Transfer") {
     ctx.addIssue({
@@ -72,6 +75,7 @@ export const personalDetailsSchema = z.object({
     }, "Age must be between 18 and 65 years"),
   email: z.string().email("Please enter a valid email address"),
   aadhaarNumber: z.string().length(12, "oops invalid Aadhaar number").regex(/^\d{12}$/, "oops invalid Aadhaar number"),
+  aadhaarName: z.string().min(2, "Name as per Aadhaar is required"),
   panImage: z.instanceof(File, { message: "PAN image is required" }),
   aadhaarImage: z.instanceof(File, { message: "Aadhaar image is required" }),
   salarySlipImage: z.instanceof(File).optional(),

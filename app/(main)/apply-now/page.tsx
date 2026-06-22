@@ -55,6 +55,11 @@ function ApplyNowContent() {
     const [isCheckingEligibility, setIsCheckingEligibility] = useState(false)
     const [isProfileComplete, setIsProfileComplete] = useState<boolean>(false)
 
+    // Scroll to top when internal step changes
+    useEffect(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, [internalStep]);
+
     const progress = (internalStep / STEPS.length) * 100
 
     const handleNext = (): void => {

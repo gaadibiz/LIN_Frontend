@@ -27,8 +27,8 @@ const createEmptyFile = (name: string, type: string): File => {
 const initialFormData: SignupFormData = {
   phoneVerification: { phoneNumber: "", otp: "" as string | undefined },
   personalDetails: {
-    panNumber: "", firstName: "", lastName: "", dateOfBirth: "", gender: "Male" as "Male" | "Female",
-    middleName: "", email: "", aadhaarNumber: "", panImage: undefined as unknown as File, aadhaarImage: undefined as unknown as File, salarySlipImage: undefined as unknown as File, bankStatementImage: undefined as unknown as File,
+    panNumber: "", firstName: "", lastName: undefined, dateOfBirth: "", gender: "Male" as "Male" | "Female",
+    middleName: "", email: "", aadhaarNumber: "", aadhaarName: "", panImage: undefined as unknown as File, aadhaarImage: undefined as unknown as File, salarySlipImage: undefined as unknown as File, bankStatementImage: undefined as unknown as File,
     consentOne: true, consentTwo: true
   },
   basicDetails: {

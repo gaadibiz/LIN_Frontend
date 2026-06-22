@@ -19,12 +19,13 @@ export interface PhoneVerificationData {
 export interface PersonalDetailsData {
   panNumber: string;
   firstName: string;
-  lastName: string;
+  lastName?: string | undefined;
   dateOfBirth: string;
   gender: "Male" | "Female";
   middleName?: string | undefined;
   email: string;
   aadhaarNumber: string;
+  aadhaarName: string;
   panImage?: File;
   aadhaarImage?: File;
   salarySlipImage?: File;

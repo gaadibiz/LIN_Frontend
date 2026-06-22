@@ -117,6 +117,15 @@ class ApiClient {
         }
 
         console.error(`❌ [API Error] Status ${response.status} at ${endpoint}:`, errorMessage, errorData || '');
+
+        // Redirect to login if JWT is expired
+        if (response.status === 401 && errorMessage.toLowerCase().includes('jwt expired')) {
+          this.clearToken();
+          if (typeof window !== 'undefined') {
+            window.location.href = '/login?expired=true';
+          }
+        }
+
         throw new Error(errorMessage);
       }
 
