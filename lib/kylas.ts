@@ -92,7 +92,7 @@ export const submitLeadToKylas = async (personalData: any, phone: string, basicD
       return;
     }
 
-    console.log("🗻🗻🗻🗻🗻 KYLAS PAYLOAD (OUTBOUND) 🗻🗻🗻🗻🗻\n", JSON.stringify(kylasPayload, null, 2));
+    // console.log("🗻🗻🗻🗻🗻 KYLAS PAYLOAD (OUTBOUND) 🗻🗻🗻🗻🗻\n", JSON.stringify(kylasPayload, null, 2));
 
     if (leadId) {
       // Update existing lead

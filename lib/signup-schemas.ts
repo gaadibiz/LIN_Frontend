@@ -56,9 +56,9 @@ export const personalDetailsSchema = z.object({
     .regex(/^[a-zA-Z\s]+$/, "First name can only contain letters and spaces"),
   middleName: z.string().default("").optional(),
   lastName: z.string()
-    .min(2, "Surname must be at least 2 characters")
     .max(50, "Surname must be less than 50 characters")
-    .regex(/^[a-zA-Z\s]+$/, "Surname can only contain letters and spaces"),
+    .regex(/^[a-zA-Z\s]*$/, "Surname can only contain letters and spaces")
+    .optional(),
   gender: z.enum(["Male", "Female"]),
   dateOfBirth: z.string()
     .min(1, "Date of birth is required")

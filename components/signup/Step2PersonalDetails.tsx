@@ -259,7 +259,7 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
           </div>
         </div>
         <div className="w-full">
-          <label className="block text-sm font-bold text-[#1c2b4f] mb-2">Surname <span className="text-red-500">*</span></label>
+          <label className="block text-sm font-bold text-[#1c2b4f] mb-2">Surname <span className="font-normal text-gray-500">(Optional)</span></label>
           <div className="relative">
             <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <Input {...register("lastName")} className="pl-10 h-11 border-gray-300 shadow-sm bg-gray-50 text-gray-500 cursor-not-allowed focus-visible:ring-0" placeholder="Surname" readOnly />
