@@ -315,6 +315,7 @@ class ApiClient {
     interestRate?: number;
     termMonths?: number;
     employmentType?: string;
+    ipAddress?: string;
   }): Promise<ApiResponse> {
     return this.request<ApiResponse>('/api/kyc', {
       method: 'POST',
@@ -406,6 +407,7 @@ class ApiClient {
       body: JSON.stringify(locationData),
     });
   }
+
 
   async getLocation(): Promise<ApiResponse> {
     return this.request<ApiResponse>('/api/users/location', {

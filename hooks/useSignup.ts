@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { apiClient } from '@/lib/api';
 import { SignupFormData } from '@/lib/signup-schemas';
 import { submitLeadToKylas } from '@/lib/kylas';
+import { getClientIp } from '@/lib/getClientIP';
 
 interface UseSignupReturn {
   currentStep: number;
@@ -136,6 +137,7 @@ export function useSignup(): UseSignupReturn {
 
           let currentAppId = null;
           try {
+             const clientIp = await getClientIp();
              const kycResponse = await apiClient.submitKYC({
                 companyName: companyName,
                 companyAddress: formData.basicDetails.city || "Not Provided", // Also ensure this is not completely empty
@@ -148,6 +150,7 @@ export function useSignup(): UseSignupReturn {
                 loanAmount: formData.basicDetails.loanAmount || 0,
                 purpose: formData.basicDetails.purposeOfLoan || "Other",
                 employmentType: employmentType,
+                ipAddress: clientIp,
              });
 
             if ((kycResponse as any)?.data?.application) {
@@ -231,6 +234,7 @@ export function useSignup(): UseSignupReturn {
           }
 
           // Submit KYC details (Used by apply-now flow)
+          const clientIp3 = data.ipAddress || (await getClientIp());
           const kycResponseSeparate = await apiClient.submitKYC({
             companyName: companyName2,
             companyAddress: data.companyAddress || data.city || "Not Provided",
@@ -243,6 +247,7 @@ export function useSignup(): UseSignupReturn {
             loanAmount: data.loanAmount,
             purpose: data.purposeOfLoan,
             employmentType: employmentType2,
+            ipAddress: clientIp3,
           });
           if ((kycResponseSeparate as any)?.data?.application) {
             setApplicationId((kycResponseSeparate as any).data.application.id);

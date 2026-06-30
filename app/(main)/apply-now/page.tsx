@@ -31,6 +31,7 @@ const STEPS: Step[] = [
 import { Suspense } from "react"
 import { Check, ClipboardList, Clock, IndianRupee, MessageCircle, Loader2, Bookmark, FileX2, Calendar } from "lucide-react"
 import { formatAppNumber } from "@/lib/utils"
+import { getClientIp } from "@/lib/getClientIP"
 
 function ApplyNowContent() {
     const { getLinkWithRef } = useAffiliate();
@@ -87,6 +88,13 @@ function ApplyNowContent() {
             city: data.city
         });
 
+        // get the client IP 
+        const clientIp = await getClientIp();
+
+        console.log(clientIp,'------------->>>>');
+        
+
+
         try {
             const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'}/api/loans/check-eligibility`, {
                 method: 'POST',
@@ -110,7 +118,8 @@ function ApplyNowContent() {
                     occupation: data.occupation,
                     monthlySalaryRange: data.monthlySalaryRange,
                     salaryReceivedIn: data.salaryReceivedIn,
-                    city: data.city
+                    city: data.city,
+                    ipAddress: clientIp
                 };
                 const success = await submitStep(3, combinedData);
                 if (success) {
@@ -138,7 +147,8 @@ function ApplyNowContent() {
                     occupation: data.occupation,
                     monthlySalaryRange: data.monthlySalaryRange,
                     salaryReceivedIn: data.salaryReceivedIn,
-                    city: data.city
+                    city: data.city,
+                    ipAddress: clientIp
                 };
                 const success = await submitStep(3, combinedData);
                 if (success) {
@@ -152,7 +162,7 @@ function ApplyNowContent() {
         }
     }
 
-    
+
     const handlePersonalDetailsSubmit = async (data: PersonalDetailsForm): Promise<void> => {
         updateFormData('personalDetails', data)
         const success = await submitStep(7, data)
@@ -201,7 +211,7 @@ function ApplyNowContent() {
             apiClient.getCompleteProfile().then(res => {
                 if (res && res.profile) {
                     const p = res.profile as any;
-                    
+
                     if (p.panVerification || p.aadhaarVerification || p.name) {
                         updateFormData('personalDetails', {
                             panNumber: p.panVerification?.panNumber || "",
@@ -402,11 +412,10 @@ function ApplyNowContent() {
                                 onClick={() => isProfileComplete && router.push(getLinkWithRef('/dashboard'))}
                                 disabled={!isProfileComplete}
                                 title={!isProfileComplete ? "Complete your profile (Name + PAN required) to access the dashboard" : ""}
-                                className={`w-full h-14 rounded-xl text-lg font-bold shadow-md transition-all flex justify-center items-center gap-2 ${
-                                    isProfileComplete
-                                        ? 'bg-[#16a34a] hover:bg-[#15803d] text-white cursor-pointer'
-                                        : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-60'
-                                }`}
+                                className={`w-full h-14 rounded-xl text-lg font-bold shadow-md transition-all flex justify-center items-center gap-2 ${isProfileComplete
+                                    ? 'bg-[#16a34a] hover:bg-[#15803d] text-white cursor-pointer'
+                                    : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-60'
+                                    }`}
                             >
                                 {isProfileComplete ? 'Go to Dashboard' : 'Complete Profile to Access Dashboard'}
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
@@ -466,71 +475,71 @@ function ApplyNowContent() {
 
                     {/* Form Content */}
                     <div className="space-y-6">
-                            {eligibilityStatus === 'rejected' ? (
-                                <div className="w-full py-8 flex flex-col items-center">
-                                    <div className="w-48 h-48 bg-[#f5f3ff] rounded-full flex items-center justify-center mb-8 relative border-4 border-white shadow-sm">
-                                        <FileX2 className="w-20 h-20 text-[#c2bdf1]" />
-                                        <div className="absolute -bottom-2 -left-2 text-6xl">🥲</div>
-                                        <div className="absolute -bottom-2 -right-2 bg-red-400 rounded-full text-white p-2 shadow-md">
-                                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
-                                            </svg>
-                                        </div>
+                        {eligibilityStatus === 'rejected' ? (
+                            <div className="w-full py-8 flex flex-col items-center">
+                                <div className="w-48 h-48 bg-[#f5f3ff] rounded-full flex items-center justify-center mb-8 relative border-4 border-white shadow-sm">
+                                    <FileX2 className="w-20 h-20 text-[#c2bdf1]" />
+                                    <div className="absolute -bottom-2 -left-2 text-6xl">🥲</div>
+                                    <div className="absolute -bottom-2 -right-2 bg-red-400 rounded-full text-white p-2 shadow-md">
+                                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
                                     </div>
-                                    <h3 className="text-2xl font-extrabold text-[#312c5b] mb-3 text-center">Application Not Approved</h3>
-                                    <p className="text-[#6b7280] mb-8 text-center text-sm font-medium px-4 max-w-[340px] leading-relaxed">
-                                        As per our credit policy, we are currently unable to process your loan application.
-                                    </p>
-                                    <div className="bg-[#f9f8ff] border border-[#f0edff] w-full max-w-[360px] py-5 px-6 rounded-2xl flex items-center gap-4 mb-6">
-                                        <div className="flex-shrink-0 bg-[#ebe8ff] p-3 rounded-xl">
-                                            <Calendar className="w-6 h-6 text-[#5b4dff]" />
-                                        </div>
-                                        <div className="text-[13px] font-medium text-gray-600 leading-relaxed">
-                                            You may reapply after <span className="font-bold text-[#312c5b]">14 days</span><br /> to reassess your eligibility.
-                                        </div>
-                                    </div>
-                                    <a href="https://api.whatsapp.com/send/?phone=919217364584&text=Hi%20I%20have%20applied%20for%20a%20loan.%20I%20have%20a%20query.%20Please%20assist&type=phone_number&app_absent=0" target="_blank" rel="noopener noreferrer" className="font-bold text-[#5b4dff] hover:text-[#4236cc] hover:underline text-sm transition-colors mt-2 pb-6">
-                                        Chat with us
-                                    </a>
                                 </div>
-                            ) : (
-                                <>
-                                    {internalStep === 1 && (
-                                        <Step0EligibilityCheck
-                                            onSubmit={handleEligibilitySubmit}
-                                            isLoading={isCheckingEligibility}
-                                            formData={formData.basicDetails as any}
-                                            isProfileComplete={isProfileComplete}
+                                <h3 className="text-2xl font-extrabold text-[#312c5b] mb-3 text-center">Application Not Approved</h3>
+                                <p className="text-[#6b7280] mb-8 text-center text-sm font-medium px-4 max-w-[340px] leading-relaxed">
+                                    As per our credit policy, we are currently unable to process your loan application.
+                                </p>
+                                <div className="bg-[#f9f8ff] border border-[#f0edff] w-full max-w-[360px] py-5 px-6 rounded-2xl flex items-center gap-4 mb-6">
+                                    <div className="flex-shrink-0 bg-[#ebe8ff] p-3 rounded-xl">
+                                        <Calendar className="w-6 h-6 text-[#5b4dff]" />
+                                    </div>
+                                    <div className="text-[13px] font-medium text-gray-600 leading-relaxed">
+                                        You may reapply after <span className="font-bold text-[#312c5b]">14 days</span><br /> to reassess your eligibility.
+                                    </div>
+                                </div>
+                                <a href="https://api.whatsapp.com/send/?phone=919217364584&text=Hi%20I%20have%20applied%20for%20a%20loan.%20I%20have%20a%20query.%20Please%20assist&type=phone_number&app_absent=0" target="_blank" rel="noopener noreferrer" className="font-bold text-[#5b4dff] hover:text-[#4236cc] hover:underline text-sm transition-colors mt-2 pb-6">
+                                    Chat with us
+                                </a>
+                            </div>
+                        ) : (
+                            <>
+                                {internalStep === 1 && (
+                                    <Step0EligibilityCheck
+                                        onSubmit={handleEligibilitySubmit}
+                                        isLoading={isCheckingEligibility}
+                                        formData={formData.basicDetails as any}
+                                        isProfileComplete={isProfileComplete}
+                                    />
+                                )}
+
+                                {internalStep === 2 && (
+                                    isProfileComplete ? (
+                                        <Step4DocumentVerification
+                                            onSubmit={handleDocumentVerificationSubmit}
+                                            formData={formData.documentVerification}
+                                            setFormData={(data) => updateFormData('documentVerification', data)}
+                                            isPayslipOptional={false}
                                         />
-                                    )}
+                                    ) : (
+                                        <Step2PersonalDetails
+                                            onSubmit={handlePersonalDetailsSubmit}
+                                            onGoToDashboard={() => { }}
+                                            formData={formData.personalDetails}
+                                            setFormData={(data) => updateFormData('personalDetails', data)}
+                                            phoneNumber={formData.phoneVerification?.phoneNumber || ""}
+                                            kylasLeadId={formData.kylasLeadId}
+                                        />
+                                    )
+                                )}
 
-                                    {internalStep === 2 && (
-                                        isProfileComplete ? (
-                                            <Step4DocumentVerification
-                                                onSubmit={handleDocumentVerificationSubmit}
-                                                formData={formData.documentVerification}
-                                                setFormData={(data) => updateFormData('documentVerification', data)}
-                                                isPayslipOptional={false}
-                                            />
-                                        ) : (
-                                            <Step2PersonalDetails
-                                                onSubmit={handlePersonalDetailsSubmit}
-                                                onGoToDashboard={() => {}}
-                                                formData={formData.personalDetails}
-                                                setFormData={(data) => updateFormData('personalDetails', data)}
-                                                phoneNumber={formData.phoneVerification?.phoneNumber || ""}
-                                                kylasLeadId={formData.kylasLeadId}
-                                            />
-                                        )
-                                    )}
 
-                                    
-                                </>
-                            )}
-                        </div>
+                            </>
+                        )}
                     </div>
                 </div>
             </div>
+        </div>
     )
 }
 

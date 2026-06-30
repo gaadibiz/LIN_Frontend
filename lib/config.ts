@@ -1,8 +1,8 @@
 // Configuration for the application
 export const config = {
   // Backend API Configuration
-  backendUrl: process.env.NEXT_PUBLIC_BACKEND_URL || 'https://lionfish-app-mg3te.ondigitalocean.app',
-  apiUrl: process.env.NEXT_PUBLIC_BACKEND_URL || 'https://lionfish-app-mg3te.ondigitalocean.app',
+  backendUrl: "https://spanking-refinance-pics-mentioned.trycloudflare.com",
+  apiUrl: "https://spanking-refinance-pics-mentioned.trycloudflare.com",
 
   // Supabase Configuration (if needed for file uploads)
   supabase: {
