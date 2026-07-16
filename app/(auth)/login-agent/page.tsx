@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation"
 import { Suspense } from "react"
 import { apiClient } from "@/lib/api"
 import { toast } from "sonner"
+import { useScrollToTop } from "@/hooks/useScrollToTop"
 
 // Types & Schemas
 type AgentRole = "affiliate" | "dsa" | "bc"
@@ -37,6 +38,9 @@ function AgentLoginForm() {
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [showPassword, setShowPassword] = useState(false)
+
+    // Scroll to top when moving between role selection and credentials
+    useScrollToTop([step])
 
     const loginForm = useForm<LoginFormData>({
         mode: "onChange",

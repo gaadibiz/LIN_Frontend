@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useScrollToTop } from './useScrollToTop';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api';
@@ -63,6 +64,9 @@ export function useSignup(): UseSignupReturn {
   const [applicationId, setApplicationId] = useState<number | null>(null);
   const [applicationCreatedAt, setApplicationCreatedAt] = useState<string | null>(null);
   const router = useRouter();
+
+  // Every component using this hook scrolls to top automatically on step change
+  useScrollToTop([currentStep]);
 
   const updateFormData = useCallback((step: keyof SignupFormData, data: any) => {
     setFormData(prev => ({ ...prev, [step]: data }));

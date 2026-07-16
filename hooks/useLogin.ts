@@ -1,4 +1,5 @@
 import { useState, useCallback, Dispatch, SetStateAction } from 'react';
+import { useScrollToTop } from './useScrollToTop';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api';
 import { LoginStep1Form, LoginOtpForm } from '@/lib/login-schemas';
@@ -26,6 +27,9 @@ export function useLogin(): UseLoginReturn {
   const [otpResendTimer, setOtpResendTimer] = useState(0);
   const [isVerifying, setIsVerifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Every component using this hook scrolls to top automatically on step change
+  useScrollToTop([step]);
 
   const loginStep1 = useCallback(async (data: LoginStep1Form): Promise<boolean> => {
     try {

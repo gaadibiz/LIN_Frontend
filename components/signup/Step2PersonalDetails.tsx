@@ -155,6 +155,41 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
     }
   };
 
+  const verifyAadhaarNumber = React.useCallback(async (digits: string) => {
+    setAadhaarStatus('checking');
+    setAadhaarError(null);
+    try {
+      const { apiClient } = await import('@/lib/api');
+      const response = await apiClient.validateAadhaar(digits);
+      if (response && response.success === false) {
+        throw new Error(response.message || 'Please enter a valid Aadhaar card number.');
+      }
+      setAadhaarStatus('valid');
+    } catch (e: any) {
+      const msg = (e.message || '').toLowerCase();
+      // A returning user's Aadhaar may already be verified on this session —
+      // the backend refuses to verify it twice, but that still means it's valid
+      if (msg.includes('already verified') || msg.includes('already validated')) {
+        setAadhaarStatus('valid');
+        return;
+      }
+      setAadhaarStatus('invalid');
+      setAadhaarError(e.message || 'Please enter a valid Aadhaar card number.');
+    }
+  }, []);
+
+  // Session resume: when a returning user's saved profile prefills the Aadhaar,
+  // no typing happens so the verification never fires and the submit button
+  // stays disabled forever. Verify the prefilled number automatically.
+  React.useEffect(() => {
+    const prefilled = String(formData?.aadhaarNumber || "").replace(/\D/g, "");
+    if (prefilled.length === 12 && aadhaarStatus === 'idle') {
+      setValue("aadhaarNumber", prefilled, { shouldValidate: true });
+      verifyAadhaarNumber(prefilled);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData?.aadhaarNumber, verifyAadhaarNumber]);
+
   const handleAadhaarChange = async (val: string, fieldOnChange: (v: string) => void) => {
     const digits = val.replace(/\D/g, '');
     fieldOnChange(digits);
@@ -167,19 +202,7 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
     }
 
     // Trigger real-time validation as soon as all 12 digits are entered
-    setAadhaarStatus('checking');
-    setAadhaarError(null);
-    try {
-      const { apiClient } = await import('@/lib/api');
-      const response = await apiClient.validateAadhaar(digits);
-      if (response && response.success === false) {
-        throw new Error(response.message || 'Please enter a valid Aadhaar card number.');
-      }
-      setAadhaarStatus('valid');
-    } catch (e: any) {
-      setAadhaarStatus('invalid');
-      setAadhaarError(e.message || 'Please enter a valid Aadhaar card number.');
-    }
+    await verifyAadhaarNumber(digits);
   };
 
   return (

@@ -26,6 +26,7 @@ import { useAffiliate } from "@/hooks/useAffiliate";
 
 import { Suspense } from "react";
 import { Loader2 } from "lucide-react";
+import { useScrollToTop } from "@/hooks/useScrollToTop";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,9 @@ function DSADashboardContent() {
     const { getLinkWithRef } = useAffiliate();
     const router = useRouter();
     const [activeTab, setActiveTab] = React.useState("Dashboard");
+
+    // Scroll to top when switching dashboard tabs
+    useScrollToTop([activeTab])
     const [loading, setLoading] = React.useState(true);
     const [dashboardData, setDashboardData] = React.useState<any>(null);
     const [referralLink, setReferralLink] = React.useState('');

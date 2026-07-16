@@ -2,6 +2,7 @@
 
 import React, { useState } from "react"
 import { useSignup } from "@/hooks/useSignup"
+import { useScrollToTop } from "@/hooks/useScrollToTop"
 import { Step0EligibilityCheck } from "@/components/signup/Step0EligibilityCheck"
 import { Step1PhoneVerification } from "@/components/signup/Step1PhoneVerification"
 import { Step2PersonalDetails } from "@/components/signup/Step2PersonalDetails"
@@ -48,6 +49,9 @@ function SignupContent() {
   const [eligibilityStatus, setEligibilityStatus] = useState<'pending' | 'eligible' | 'rejected'>('pending')
   const [isCheckingEligibility, setIsCheckingEligibility] = useState(false)
   const [registrationSuccessful, setRegistrationSuccessful] = useState(false)
+
+  // Step changes are handled inside useSignup; this covers the success/rejection screens
+  useScrollToTop([eligibilityStatus, registrationSuccessful])
 
   const handleNext = (): void => {
     if (currentStep < STEPS.length) {

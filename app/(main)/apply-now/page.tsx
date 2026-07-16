@@ -1,7 +1,8 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState } from "react"
 import { useSignup } from "@/hooks/useSignup"
+import { useScrollToTop } from "@/hooks/useScrollToTop"
 import { Step0EligibilityCheck } from "@/components/signup/Step0EligibilityCheck"
 import { Step4DocumentVerification } from "@/components/signup/Step4DocumentVerification"
 import { Step2PersonalDetails } from "@/components/signup/Step2PersonalDetails"
@@ -56,10 +57,9 @@ function ApplyNowContent() {
     const [isCheckingEligibility, setIsCheckingEligibility] = useState(false)
     const [isProfileComplete, setIsProfileComplete] = useState<boolean>(false)
 
-    // Scroll to top when internal step changes
-    useEffect(() => {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, [internalStep]);
+    // Scroll to top on every screen change in the apply flow: step changes,
+    // personal-details -> documents swap, success screen, and rejection screen
+    useScrollToTop([internalStep, applicationSubmitted, eligibilityStatus, isProfileComplete])
 
     const progress = (internalStep / STEPS.length) * 100
 

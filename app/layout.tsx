@@ -3,6 +3,7 @@ import "./globals.css";
 import { outfit } from "@/lib/fonts";
 import { Toaster } from "sonner";
 import ReferralTracker from "@/components/ReferralTracker";
+import ScrollToTop from "@/components/ScrollToTop";
 import Script from "next/script";
 
 export const metadata: Metadata = {
@@ -38,6 +39,7 @@ export default function RootLayout({
             gtag('config', 'AW-10980985072');
           `}
         </Script>
+        <ScrollToTop />
         <ReferralTracker />
         <Toaster position="top-center" richColors />
         {children}

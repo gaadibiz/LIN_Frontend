@@ -28,6 +28,7 @@ import {
     Bookmark
 } from "lucide-react";
 import { useSignup } from "@/hooks/useSignup";
+import { useScrollToTop } from "@/hooks/useScrollToTop";
 import { Step0EligibilityCheck } from "@/components/signup/Step0EligibilityCheck";
 import { Step4DocumentVerification } from "@/components/signup/Step4DocumentVerification";
 import { EligibilityForm, DocumentVerificationForm } from "@/lib/signup-schemas";
@@ -52,6 +53,9 @@ function ReloanFlow() {
     const [applicationSubmitted, setApplicationSubmitted] = React.useState(false)
     const [eligibilityStatus, setEligibilityStatus] = React.useState<'pending' | 'eligible' | 'rejected'>('pending')
     const [isCheckingEligibility, setIsCheckingEligibility] = React.useState(false)
+
+    // Scroll to top when the step changes or when the success/rejection screen appears
+    useScrollToTop([internalStep, applicationSubmitted, eligibilityStatus])
 
     // Pre-fill data if authenticated
     React.useEffect(() => {
@@ -290,6 +294,9 @@ function DashboardContent() {
     const router = useRouter();
     const { getLinkWithRef } = useAffiliate();
     const [activeTab, setActiveTab] = React.useState("Dashboard");
+
+    // Scroll to top when switching dashboard tabs
+    useScrollToTop([activeTab])
     const [isLoading, setIsLoading] = React.useState(true); // Loading state
     const [loanHistoryData, setLoanHistoryData] = React.useState<any[]>([]);
     const [searchQuery, setSearchQuery] = React.useState({ appId: "", phone: "" });

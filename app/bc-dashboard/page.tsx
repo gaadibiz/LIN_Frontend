@@ -27,12 +27,16 @@ import { useRouter } from "next/navigation";
 
 import { Suspense } from "react";
 import { Loader2 } from "lucide-react";
+import { useScrollToTop } from "@/hooks/useScrollToTop";
 
 export const dynamic = "force-dynamic";
 
 function BCDashboardContent() {
     const { affiliateRef, getLinkWithRef } = useAffiliate();
     const [activeTab, setActiveTab] = React.useState("Dashboard");
+
+    // Scroll to top when switching dashboard tabs
+    useScrollToTop([activeTab])
     const router = useRouter();
 
     const handleLogout = () => {

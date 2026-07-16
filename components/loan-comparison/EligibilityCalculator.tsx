@@ -112,15 +112,11 @@ export default function EligibilityCalculator() {
                 <label className="font-semibold">Tenure (in years)</label>
                 <Input
                   className="justify-end w-1/6 max-w-[80px] bg-gray-200 border-0 focus:ring-0"
-                  type="number"
-                  min={1}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   value={tenure}
-                  onChange={(e) => setTenure(Number(e.target.value))}
-                  onKeyDown={(e) => {
-                    if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') {
-                      e.preventDefault();
-                    }
-                  }}
+                  onChange={(e) => setTenure(Number(e.target.value.replace(/\D/g, "")))}
                 />
               </div>
               <Slider
@@ -143,17 +139,13 @@ export default function EligibilityCalculator() {
                 <label className="font-semibold">Monthly Expense (%)</label>
                 <Input
                   className="justify-end w-1/6 max-w-[80px] bg-gray-200 border-0 focus:ring-0"
-                  type="number"
-                  min={0}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   value={expense}
                   onChange={(e) =>
-                    setExpense(formatPercentInput(e.target.value))
+                    setExpense(formatPercentInput(e.target.value.replace(/\D/g, "")))
                   }
-                  onKeyDown={(e) => {
-                    if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') {
-                      e.preventDefault();
-                    }
-                  }}
                 />
               </div>
               <Slider

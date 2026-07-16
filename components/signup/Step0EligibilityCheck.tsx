@@ -45,6 +45,20 @@ export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfile
   // We explicitly watch out for specific custom UI behaviors
   const salaryReceivedIn = watch("salaryReceivedIn")
 
+  // Text inputs with digit-only filtering: type="number" lets mouse-wheel
+  // scrolling change the value accidentally, so we use text + numeric keypad
+  // while keeping the payload types unchanged (loanAmount: number, salary: string)
+  const loanAmountField = register("loanAmount", {
+    setValueAs: (v) => {
+      const digits = String(v ?? "").replace(/\D/g, "")
+      return digits === "" ? undefined : Number(digits)
+    },
+  })
+  const salaryField = register("monthlySalaryRange")
+  const sanitizeDigits = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.target.value = e.target.value.replace(/\D/g, "")
+  }
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 form-fade-in">
       <div className="space-y-6">
@@ -77,14 +91,16 @@ export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfile
               ₹
             </span>
             <Input
-              {...register("loanAmount", { valueAsNumber: true })}
-              type="number"
+              {...loanAmountField}
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              autoComplete="off"
+              maxLength={7}
               placeholder="Enter Loan Amount"
-              min={0}
-              onKeyDown={(e) => {
-                if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') {
-                  e.preventDefault();
-                }
+              onChange={(e) => {
+                sanitizeDigits(e)
+                loanAmountField.onChange(e)
               }}
               className="pl-10 h-12 text-base shadow-sm focus-visible:ring-red-600 border-gray-300"
             />
@@ -154,19 +170,16 @@ export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfile
           </div>
 
           <input
-            type="number"
-            min="0"
-            {...register("monthlySalaryRange", {
-              min: {
-                value: 0,
-                message: "Salary cannot be negative",
-              },
-            })}
+            {...salaryField}
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            autoComplete="off"
+            maxLength={8}
             placeholder="Enter Monthly Salary"
-            onKeyDown={(e) => {
-              if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') {
-                e.preventDefault();
-              }
+            onChange={(e) => {
+              sanitizeDigits(e)
+              salaryField.onChange(e)
             }}
             className="w-full h-12 px-4 shadow-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-red-600 text-gray-700"
           />
