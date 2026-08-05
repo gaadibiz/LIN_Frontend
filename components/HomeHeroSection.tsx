@@ -12,7 +12,7 @@ import { useAffiliate } from "@/hooks/useAffiliate";
 const HomeHeroSection = () => {
   const { getLinkWithRef } = useAffiliate();
   return (
-    <section className="font-sans items-center justify-items-center gap-8 md:gap-16 flex flex-col md:flex-row w-full mt-20 sm:mt-24 md:mt-12 mb-8 md:mb-12">
+    <section className="font-sans items-center justify-items-center gap-8 md:gap-16 flex flex-col md:flex-row w-full mt-24 sm:mt-28 md:mt-20 mb-8 md:mb-12">
 
       <div className="flex relative z-1 items-center justify-center px-4 py-8 sm:p-8 md:p-16 lg:p-24 flex-col md:flex-row gap-6 md:gap-8 w-full max-w-[95rem] mx-auto">
         <div className="flex flex-col gap-4 w-full md:w-1/2">
