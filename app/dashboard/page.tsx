@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React, { Suspense } from "react";
@@ -359,7 +360,11 @@ function DashboardContent() {
                     // Check profile completeness (Name + PAN required)
                     const hasName = !!(p.name && p.name.trim().split(/\s+/).length >= 2);
                     const hasPan = !!(p.panVerification?.panNumber);
-                    if (!hasName || !hasPan) {
+                    // Only bounce to apply-now if the user has NO loan application yet.
+                    // A user who already has an application must stay on the dashboard,
+                    // otherwise incomplete name/PAN causes an apply-now redirect loop.
+                    const alreadyApplied = Array.isArray(p.loanApplications) && p.loanApplications.length > 0;
+                    if (!alreadyApplied && (!hasName || !hasPan)) {
                         router.push(getLinkWithRef("/apply-now"));
                         return;
                     }

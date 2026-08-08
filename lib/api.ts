@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // API integration layer for backend communication
 import { config } from './config';
 
@@ -118,12 +119,9 @@ class ApiClient {
 
         console.error(`❌ [API Error] Status ${response.status} at ${endpoint}:`, errorMessage, errorData || '');
 
-        // Redirect to login if JWT is expired
+        // Session expired: alert the user, and log them out once they acknowledge it.
         if (response.status === 401 && errorMessage.toLowerCase().includes('jwt expired')) {
-          this.clearToken();
-          if (typeof window !== 'undefined') {
-            window.location.href = '/login?expired=true';
-          }
+          this.handleSessionExpired();
         }
 
         throw new Error(errorMessage);
@@ -501,6 +499,26 @@ class ApiClient {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('authToken');
     }
+  }
+
+  // Guard so a burst of 401s only triggers a single expiry alert / logout.
+  private sessionExpiredHandled = false;
+
+  // Shows an alert; once the user clicks OK the token is cleared and they are
+  // sent to the login page. Kept idempotent via the guard flag above.
+  private handleSessionExpired() {
+    if (typeof window === 'undefined') {
+      this.clearToken();
+      return;
+    }
+    if (this.sessionExpiredHandled) return;
+    this.sessionExpiredHandled = true;
+
+    // window.alert blocks until the user clicks OK — i.e. logout happens
+    // only after the user acknowledges the "session expired" alert.
+    window.alert('Your session has expired. Please log in again.');
+    this.clearToken();
+    window.location.href = '/login?expired=true';
   }
 
   getToken(): string | null {

@@ -5,6 +5,18 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+// Returns true if the user profile already has at least one loan application.
+export function hasLoanApplication(profile: unknown): boolean {
+  const apps = (profile as { loanApplications?: unknown } | null | undefined)?.loanApplications;
+  return Array.isArray(apps) && apps.length > 0;
+}
+
+// Decides where to send an authenticated user based on their applications.
+// No applications yet -> go to Apply. Has at least one -> go to Dashboard.
+export function getPostAuthRoute(profile: unknown): string {
+  return hasLoanApplication(profile) ? "/dashboard" : "/apply-now";
+}
+
 export function formatAppNumber(id: number | string | null | undefined, aadhaar?: string): string {
   if (!id) return "";
   

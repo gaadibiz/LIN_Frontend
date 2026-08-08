@@ -30,6 +30,7 @@ import {
 import { Menu } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useAffiliate } from "@/hooks/useAffiliate";
+import { hasLoanApplication } from "@/lib/utils";
 import FraudAlertTicker from "@/components/FraudAlertTicker";
 
 
@@ -98,6 +99,8 @@ export default function Navbar() {
   const [dashboardLink, setDashboardLink] = React.useState("/dashboard");
   const [sheetOpen, setSheetOpen] = React.useState(false);
   const [isProfileComplete, setIsProfileComplete] = React.useState(true);
+  // Dashboard is only accessible once the user has at least one loan application.
+  const [canAccessDashboard, setCanAccessDashboard] = React.useState(false);
 
   React.useEffect(() => {
     const userToken = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
@@ -107,19 +110,22 @@ export default function Navbar() {
       setIsLoggedIn(true);
       setDashboardLink("/dashboard");
       
-      // Load profile to check completeness (No longer blocking dashboard access)
+      // Load profile: enable the dashboard button only if the user has a loan application.
       import("@/lib/api").then(({ apiClient }) => {
         apiClient.getCompleteProfile().then(res => {
-          // Profile check logic kept for analytics/other features if needed, but not blocking navigation anymore.
-          setIsProfileComplete(true); 
+          setIsProfileComplete(true);
+          setCanAccessDashboard(hasLoanApplication(res?.profile));
         }).catch(e => {
           console.error("Failed to load profile in navbar:", e);
           setIsProfileComplete(true);
+          setCanAccessDashboard(false);
         });
       });
     } else if (partnerToken) {
       setIsLoggedIn(true);
       setIsProfileComplete(true);
+      // Partners (DSA/BC/Affiliate) have their own dashboards — always accessible.
+      setCanAccessDashboard(true);
       const partnerDataStr = localStorage.getItem('partnerData');
       if (partnerDataStr) {
         try {
@@ -140,6 +146,7 @@ export default function Navbar() {
     } else {
       setIsLoggedIn(false);
       setIsProfileComplete(true);
+      setCanAccessDashboard(false);
     }
   }, [pathname]);
 
@@ -261,11 +268,23 @@ export default function Navbar() {
                 {isLoggedIn ? (
                   <NavigationMenuItem>
                     <NavigationMenuLink asChild>
-                      <Link href={getLinkWithRef(dashboardLink)}>
-                        <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 font-semibold shadow-sm">
+                      {canAccessDashboard ? (
+                        <Link href={getLinkWithRef(dashboardLink)}>
+                          <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 font-semibold shadow-sm">
+                            View Dashboard
+                          </Button>
+                        </Link>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled
+                          title="Apply for a loan first to access your dashboard"
+                          className="text-red-600 border-red-200 font-semibold shadow-sm opacity-50 cursor-not-allowed"
+                        >
                           View Dashboard
                         </Button>
-                      </Link>
+                      )}
                     </NavigationMenuLink>
                   </NavigationMenuItem>
                 ) : (
@@ -410,9 +429,20 @@ export default function Navbar() {
 
                   <div className="pt-4 flex flex-col space-y-3">
                     {isLoggedIn ? (
-                      <MobileLink href={dashboardLink}>
-                        <Button variant="outline" className="w-full text-red-600 border-red-200 hover:bg-red-50">View Dashboard</Button>
-                      </MobileLink>
+                      canAccessDashboard ? (
+                        <MobileLink href={dashboardLink}>
+                          <Button variant="outline" className="w-full text-red-600 border-red-200 hover:bg-red-50">View Dashboard</Button>
+                        </MobileLink>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          disabled
+                          title="Apply for a loan first to access your dashboard"
+                          className="w-full text-red-600 border-red-200 opacity-50 cursor-not-allowed"
+                        >
+                          View Dashboard
+                        </Button>
+                      )
                     ) : (
                       <MobileLink href="/login" className="text-sm font-medium py-2 hover:text-primary transition-colors">
                         Login

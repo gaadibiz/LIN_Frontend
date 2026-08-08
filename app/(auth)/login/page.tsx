@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
 import React, { useEffect, useState } from "react"
@@ -85,25 +86,19 @@ function LoginForm() {
   const handleOtpSubmit = async (data: LoginOtpForm) => {
     const success = await verifyOtp(data)
     if (success) {
-      // Check profile completeness before deciding where to redirect
+      // Decide destination based on whether the user already has a loan application.
+      // No application yet -> Apply Now. Has at least one -> Dashboard.
       setTimeout(async () => {
         try {
           const { apiClient } = await import("@/lib/api");
+          const { getPostAuthRoute } = await import("@/lib/utils");
           const res = await apiClient.getCompleteProfile();
           const p = res?.profile as any;
-          const hasName = !!(p?.name && p.name.trim().split(/\s+/).length >= 2);
-          const hasPan = !!(p?.panVerification?.panNumber);
-          const isComplete = hasName && hasPan;
 
-          if (isComplete) {
-            router.push(getLinkWithRef("/dashboard"));
-          } else {
-            // Profile is incomplete — redirect to apply-now to complete it
-            router.push(getLinkWithRef("/apply-now"));
-          }
+          router.push(getLinkWithRef(getPostAuthRoute(p)));
         } catch {
-          // Fallback to dashboard if profile check fails
-          router.push(getLinkWithRef("/dashboard"));
+          // Fallback to apply-now if the profile check fails.
+          router.push(getLinkWithRef("/apply-now"));
         }
       }, 2000)
     }

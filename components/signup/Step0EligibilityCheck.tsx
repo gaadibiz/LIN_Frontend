@@ -45,6 +45,20 @@ export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfile
   // We explicitly watch out for specific custom UI behaviors
   const salaryReceivedIn = watch("salaryReceivedIn")
 
+  // Live salary check so we can TELL the user why they can't proceed.
+  // (RHF's cross-field error can lag when only the loan amount changes, so we
+  // compute this directly from the current values instead of relying on it.)
+  const watchedLoanAmount = watch("loanAmount")
+  const watchedSalary = watch("monthlySalaryRange")
+  const salaryNum = Number(String(watchedSalary ?? "").replace(/\D/g, ""))
+  const requiredSalary =
+    typeof watchedLoanAmount === "number" ? watchedLoanAmount + 50000 : 0
+  const isSalaryTooLow =
+    typeof watchedLoanAmount === "number" &&
+    String(watchedSalary ?? "").trim() !== "" &&
+    !Number.isNaN(salaryNum) &&
+    salaryNum <= requiredSalary
+
   // Text inputs with digit-only filtering: type="number" lets mouse-wheel
   // scrolling change the value accidentally, so we use text + numeric keypad
   // while keeping the payload types unchanged (loanAmount: number, salary: string)
@@ -184,10 +198,23 @@ export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfile
             className="w-full h-12 px-4 shadow-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-red-600 text-gray-700"
           />
 
-          {errors.monthlySalaryRange && (
+          {errors.monthlySalaryRange && !isSalaryTooLow && (
             <p className="text-red-500 text-sm mt-1">
               {errors.monthlySalaryRange.message}
             </p>
+          )}
+
+          {isSalaryTooLow && (
+            <div className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5">
+              <p className="text-red-600 text-sm font-medium">
+                Your monthly income is too low for this loan amount.
+              </p>
+              <p className="text-red-500 text-xs mt-1 leading-relaxed">
+                To apply for a loan of ₹{watchedLoanAmount!.toLocaleString("en-IN")}, your monthly salary
+                must be more than ₹{requiredSalary.toLocaleString("en-IN")}.
+                Please increase your monthly salary or reduce the loan amount.
+              </p>
+            </div>
           )}
         </div>
 

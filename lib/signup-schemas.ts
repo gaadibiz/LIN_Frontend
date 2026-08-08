@@ -19,6 +19,24 @@ export const eligibilitySchema = z.object({
       path: ["salaryReceivedIn"]
     });
   }
+
+  // Monthly salary must be MORE than the requested loan amount + ₹50,000.
+  // e.g. a ₹1,00,000 loan needs a monthly salary greater than ₹1,50,000.
+  // If the salary is too low we stop here and show the notice instead of eligibility.
+  const salary = Number(String(data.monthlySalaryRange ?? "").replace(/\D/g, ""));
+  if (
+    typeof data.loanAmount === "number" &&
+    String(data.monthlySalaryRange ?? "").trim() !== "" &&
+    !Number.isNaN(salary) &&
+    salary <= data.loanAmount + 50000
+  ) {
+    const requiredSalary = data.loanAmount + 50000;
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `Your monthly salary is too low for this loan. For a loan of ₹${data.loanAmount.toLocaleString("en-IN")}, your monthly salary must be more than ₹${requiredSalary.toLocaleString("en-IN")}.`,
+      path: ["monthlySalaryRange"]
+    });
+  }
 })
 
 // Step 1: Phone verification
@@ -146,6 +164,23 @@ export const basicDetailsSchema = z.object({
       code: z.ZodIssueCode.custom,
       message: "Profession name is required",
       path: ["professionName"]
+    });
+  }
+
+  // Monthly salary must be MORE than the requested loan amount + ₹50,000.
+  // e.g. a ₹1,00,000 loan needs a monthly salary greater than ₹1,50,000;
+  //      a ₹2,00,000 loan needs a monthly salary greater than ₹2,50,000.
+  // If the salary is too low we don't run eligibility — we just show this notice.
+  if (
+    typeof data.monthlyIncome === "number" &&
+    typeof data.loanAmount === "number" &&
+    data.monthlyIncome <= data.loanAmount + 50000
+  ) {
+    const requiredSalary = data.loanAmount + 50000;
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `Your monthly salary is too low for this loan. For a loan of ₹${data.loanAmount.toLocaleString("en-IN")}, your monthly salary must be more than ₹${requiredSalary.toLocaleString("en-IN")}. Please increase your monthly salary or reduce the loan amount.`,
+      path: ["monthlyIncome"]
     });
   }
 })
