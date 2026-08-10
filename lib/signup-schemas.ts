@@ -20,17 +20,17 @@ export const eligibilitySchema = z.object({
     });
   }
 
-  // Monthly salary must be MORE than the requested loan amount + ₹50,000.
-  // e.g. a ₹1,00,000 loan needs a monthly salary greater than ₹1,50,000.
+  // Monthly salary must be MORE than the requested loan amount by 40%.
+  // e.g. a ₹1,00,000 loan needs a monthly salary greater than ₹1,40,000.
   // If the salary is too low we stop here and show the notice instead of eligibility.
   const salary = Number(String(data.monthlySalaryRange ?? "").replace(/\D/g, ""));
   if (
     typeof data.loanAmount === "number" &&
     String(data.monthlySalaryRange ?? "").trim() !== "" &&
     !Number.isNaN(salary) &&
-    salary <= data.loanAmount + 50000
+    salary <= Math.round(data.loanAmount * 1.4)
   ) {
-    const requiredSalary = data.loanAmount + 50000;
+    const requiredSalary = Math.round(data.loanAmount * 1.4);
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       message: `Your monthly salary is too low for this loan. For a loan of ₹${data.loanAmount.toLocaleString("en-IN")}, your monthly salary must be more than ₹${requiredSalary.toLocaleString("en-IN")}.`,

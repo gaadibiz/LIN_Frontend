@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
 import React from "react"
@@ -52,7 +53,7 @@ export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfile
   const watchedSalary = watch("monthlySalaryRange")
   const salaryNum = Number(String(watchedSalary ?? "").replace(/\D/g, ""))
   const requiredSalary =
-    typeof watchedLoanAmount === "number" ? watchedLoanAmount + 50000 : 0
+    typeof watchedLoanAmount === "number" ? Math.round(watchedLoanAmount * 1.4) : 0
   const isSalaryTooLow =
     typeof watchedLoanAmount === "number" &&
     String(watchedSalary ?? "").trim() !== "" &&
@@ -204,18 +205,21 @@ export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfile
             </p>
           )}
 
-          {isSalaryTooLow && (
+          <div
+            className="overflow-hidden transition-[max-height] duration-300 ease-out"
+            style={{ maxHeight: isSalaryTooLow ? "220px" : "0px" }}
+          >
             <div className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5">
               <p className="text-red-600 text-sm font-medium">
                 Your monthly income is too low for this loan amount.
               </p>
               <p className="text-red-500 text-xs mt-1 leading-relaxed">
-                To apply for a loan of ₹{watchedLoanAmount!.toLocaleString("en-IN")}, your monthly salary
+                To apply for a loan of ₹{(watchedLoanAmount ?? 0).toLocaleString("en-IN")}, your monthly salary
                 must be more than ₹{requiredSalary.toLocaleString("en-IN")}.
                 Please increase your monthly salary or reduce the loan amount.
               </p>
             </div>
-          )}
+          </div>
         </div>
 
         {/* Salary Received In (Segmented Control style) */}
