@@ -236,11 +236,13 @@ class ApiClient {
   }
 
   async verifyLoginOtp(phone: string, code: string): Promise<ApiResponse> {
+    const utm = getStoredUtmParams();
     const response = await this.request<ApiResponse>('/api/auth/phone/verify-otp', {
       method: 'POST',
       body: JSON.stringify({
         phone: phone.startsWith('+91') ? phone : `+91${phone}`,
-        code
+        code,
+        ...utm,
       }),
     });
 
