@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // API integration layer for backend communication
 import { config } from './config';
+import { getStoredUtmParams } from './utm';
 
 const API_BASE_URL = config.apiUrl;
 
@@ -59,7 +60,7 @@ class ApiClient {
     const dynamicToken = typeof window !== 'undefined' ? localStorage.getItem('authToken') : this.token;
     const dynamicPartnerToken = typeof window !== 'undefined' ? localStorage.getItem('partnerAuthToken') : this.partnerToken;
     const tokenToUse = usePartnerToken ? dynamicPartnerToken : dynamicToken;
-    
+
     if (tokenToUse) {
       normalizedHeaders['Authorization'] = `Bearer ${tokenToUse}`;
     }
@@ -169,6 +170,7 @@ class ApiClient {
 
   async verifyPhoneOtp(phone: string, code: string): Promise<ApiResponse> {
     // Check for local attribution data
+    const utm = getStoredUtmParams();
     let attribution = null;
     if (typeof window !== 'undefined') {
       const storedAttr = localStorage.getItem('lin_attribution');
@@ -186,7 +188,8 @@ class ApiClient {
       body: JSON.stringify({
         phone: phone.startsWith('+91') ? phone : `+91${phone}`,
         code,
-        attribution // Send attribution data to backend
+        attribution, // Send attribution data to backend
+        ...utm,
       }),
     });
 

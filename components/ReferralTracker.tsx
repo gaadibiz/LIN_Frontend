@@ -2,7 +2,7 @@
 
 import { useSearchParams } from "next/navigation";
 import { useEffect, Suspense } from "react";
-import { toast } from "sonner";
+import { captureUtmParams } from "@/lib/utm";
 
 function ReferralTrackerContent() {
     const searchParams = useSearchParams();
@@ -24,6 +24,8 @@ function ReferralTrackerContent() {
             localStorage.setItem("lin_attribution", JSON.stringify(attributionData));
             console.log("✅ Referral attributed to Partner ID:", pid);
         }
+
+        captureUtmParams(searchParams);
     }, [searchParams]);
 
     return null;

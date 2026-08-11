@@ -54,6 +54,7 @@ function ReloanFlow() {
     const [applicationSubmitted, setApplicationSubmitted] = React.useState(false)
     const [eligibilityStatus, setEligibilityStatus] = React.useState<'pending' | 'eligible' | 'rejected'>('pending')
     const [isCheckingEligibility, setIsCheckingEligibility] = React.useState(false)
+    const [isSubmittingDoc, setIsSubmittingDoc] = React.useState(false)
 
     // Scroll to top when the step changes or when the success/rejection screen appears
     useScrollToTop([internalStep, applicationSubmitted, eligibilityStatus])
@@ -181,26 +182,31 @@ function ReloanFlow() {
     }
 
     const handleDocumentVerificationSubmit = async (data: DocumentVerificationForm): Promise<void> => {
-        updateFormData('documentVerification', data)
-
-        // Upload individual docs (PAN, Aadhaar) if present — mirrors apply-now flow
+        setIsSubmittingDoc(true);
         try {
-            const { apiClient } = await import("@/lib/api");
-            if (data.panImage && data.panImage instanceof File && data.panImage.size > 0) {
-                await apiClient.uploadDocument('PAN', data.panImage);
-            }
-            if (data.aadhaarImage && data.aadhaarImage instanceof File && data.aadhaarImage.size > 0) {
-                await apiClient.uploadDocument('AADHAAR', data.aadhaarImage);
-            }
-        } catch (docErr) {
-            console.error("Individual doc upload error (non-blocking):", docErr);
-        }
+            updateFormData('documentVerification', data)
 
-        const success = await submitStep(4, data)
-        if (success) {
-            setApplicationSubmitted(true)
-        } else {
-            alert("Failed to save documents. Please try again.")
+            // Upload individual docs (PAN, Aadhaar) if present — mirrors apply-now flow
+            try {
+                const { apiClient } = await import("@/lib/api");
+                if (data.panImage && data.panImage instanceof File && data.panImage.size > 0) {
+                    await apiClient.uploadDocument('PAN', data.panImage);
+                }
+                if (data.aadhaarImage && data.aadhaarImage instanceof File && data.aadhaarImage.size > 0) {
+                    await apiClient.uploadDocument('AADHAAR', data.aadhaarImage);
+                }
+            } catch (docErr) {
+                console.error("Individual doc upload error (non-blocking):", docErr);
+            }
+
+            const success = await submitStep(4, data)
+            if (success) {
+                setApplicationSubmitted(true)
+            } else {
+                alert("Failed to save documents. Please try again.")
+            }
+        } finally {
+            setIsSubmittingDoc(false);
         }
     }
 
@@ -282,6 +288,8 @@ function ReloanFlow() {
                                 formData={formData.documentVerification}
                                 setFormData={(data) => updateFormData('documentVerification', data)}
                                 isPayslipOptional={true}
+                                isLoading={isSubmittingDoc || isLoading}
+                                submitText="Submit Application"
                             />
                         )}
                     </>

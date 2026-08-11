@@ -7,15 +7,25 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { FileUpload } from "@/components/ui/file-upload"
 import { documentVerificationSchema, documentVerificationSchemaOptionalPayslip, type DocumentVerificationForm } from "@/lib/signup-schemas"
+import { Loader2 } from "lucide-react"
 
 interface Step4Props {
   onSubmit: (data: DocumentVerificationForm) => void
   formData: DocumentVerificationForm
   setFormData: (data: DocumentVerificationForm) => void
   isPayslipOptional?: boolean
+  isLoading?: boolean
+  submitText?: string
 }
 
-export function Step4DocumentVerification({ onSubmit, formData, setFormData, isPayslipOptional = false }: Step4Props) {
+export function Step4DocumentVerification({
+  onSubmit,
+  formData,
+  setFormData,
+  isPayslipOptional = false,
+  isLoading = false,
+  submitText = "Submit Application"
+}: Step4Props) {
   const schema = isPayslipOptional ? documentVerificationSchemaOptionalPayslip : documentVerificationSchema
   const { register, handleSubmit, formState: { errors, isValid }, setValue, watch } = useForm<DocumentVerificationForm>({
     mode: "onChange",
@@ -118,10 +128,17 @@ export function Step4DocumentVerification({ onSubmit, formData, setFormData, isP
 
         <Button 
           type="submit" 
-          className="w-full bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-          disabled={!isValid || !consentChecked}
+          className="w-full bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 h-12 text-base font-bold shadow-md transition-all"
+          disabled={!isValid || !consentChecked || isLoading}
         >
-          Next
+          {isLoading ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin text-white" />
+              <span>Submitting...</span>
+            </>
+          ) : (
+            submitText
+          )}
         </Button>
       </div>
     </form>

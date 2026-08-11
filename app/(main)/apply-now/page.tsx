@@ -56,6 +56,7 @@ function ApplyNowContent() {
     const [isDownloadingPdf, setIsDownloadingPdf] = useState<boolean>(false)
     const [eligibilityStatus, setEligibilityStatus] = useState<'pending' | 'eligible' | 'rejected'>('pending')
     const [isCheckingEligibility, setIsCheckingEligibility] = useState(false)
+    const [isSubmittingDoc, setIsSubmittingDoc] = useState(false)
     const [isProfileComplete, setIsProfileComplete] = useState<boolean>(false)
 
     // Scroll to top on every screen change in the apply flow: step changes,
@@ -176,27 +177,32 @@ function ApplyNowContent() {
     }
 
     const handleDocumentVerificationSubmit = async (data: DocumentVerificationForm): Promise<void> => {
-        updateFormData('documentVerification', data)
+        setIsSubmittingDoc(true)
+        try {
+            updateFormData('documentVerification', data)
 
-        if (data.panImage && data.panImage instanceof File) {
-            try {
-                await apiClient.uploadDocument('PAN', data.panImage);
-            } catch (err) {
-                console.error("Failed to upload PAN:", err);
+            if (data.panImage && data.panImage instanceof File) {
+                try {
+                    await apiClient.uploadDocument('PAN', data.panImage);
+                } catch (err) {
+                    console.error("Failed to upload PAN:", err);
+                }
             }
-        }
 
-        if (data.aadhaarImage && data.aadhaarImage instanceof File) {
-            try {
-                await apiClient.uploadDocument('AADHAAR', data.aadhaarImage);
-            } catch (err) {
-                console.error("Failed to upload Aadhaar:", err);
+            if (data.aadhaarImage && data.aadhaarImage instanceof File) {
+                try {
+                    await apiClient.uploadDocument('AADHAAR', data.aadhaarImage);
+                } catch (err) {
+                    console.error("Failed to upload Aadhaar:", err);
+                }
             }
-        }
 
-        const success = await submitStep(4, data)
-        if (success) {
-            setApplicationSubmitted(true)
+            const success = await submitStep(4, data)
+            if (success) {
+                setApplicationSubmitted(true)
+            }
+        } finally {
+            setIsSubmittingDoc(false)
         }
     }
 
@@ -590,6 +596,8 @@ function ApplyNowContent() {
                                             formData={formData.documentVerification}
                                             setFormData={(data) => updateFormData('documentVerification', data)}
                                             isPayslipOptional={false}
+                                            isLoading={isSubmittingDoc || isLoading}
+                                            submitText="Submit Application"
                                         />
                                     ) : (
                                         <Step2PersonalDetails
