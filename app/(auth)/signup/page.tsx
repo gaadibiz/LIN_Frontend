@@ -101,7 +101,9 @@ function SignupContent() {
           occupation: data.occupation,
           salaryReceivedIn: data.salaryReceivedIn,
           monthlySalaryRange: data.monthlySalaryRange,
-          city: data.city
+          city: data.city,
+          // Only the eligibility form is filled at this point
+          submitted: false
         })
       });
       const result = await response.json();

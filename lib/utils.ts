@@ -1,14 +1,16 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { getSubmittedApplications } from "./application-status"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-// Returns true if the user profile already has at least one loan application.
+// Returns true if the user profile already has at least one *submitted* loan application.
+// Drafts left behind by the eligibility check don't count — see lib/application-status.ts.
 export function hasLoanApplication(profile: unknown): boolean {
   const apps = (profile as { loanApplications?: unknown } | null | undefined)?.loanApplications;
-  return Array.isArray(apps) && apps.length > 0;
+  return getSubmittedApplications(apps).length > 0;
 }
 
 // Decides where to send an authenticated user based on their applications.

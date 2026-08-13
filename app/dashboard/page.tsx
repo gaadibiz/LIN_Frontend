@@ -5,6 +5,7 @@ import React, { Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { useAffiliate } from "@/hooks/useAffiliate";
 import { formatAppNumber } from "@/lib/utils";
+import { getSubmittedApplications } from "@/lib/application-status";
 
 import {
     LayoutDashboard,
@@ -126,7 +127,9 @@ function ReloanFlow() {
                     occupation: data.occupation,
                     salaryReceivedIn: data.salaryReceivedIn,
                     monthlySalaryRange: data.monthlySalaryRange,
-                    city: data.city
+                    city: data.city,
+                    // Only the eligibility form is filled at this point
+                    submitted: false
                 })
             });
             const result = await response.json();
@@ -145,7 +148,7 @@ function ReloanFlow() {
                 if (success) {
                     setInternalStep(2);
                 } else {
-                    alert("Failed to create application. Please try again.");
+                    alert("Something went wrong. Please try again.");
                 }
             } else {
                 setEligibilityStatus('rejected');
@@ -173,7 +176,7 @@ function ReloanFlow() {
                 if (success) {
                     setInternalStep(2);
                 } else {
-                    alert("Failed to create application. Please try again.");
+                    alert("Something went wrong. Please try again.");
                 }
             }
         } finally {
@@ -307,6 +310,10 @@ function DashboardContent() {
     // Scroll to top when switching dashboard tabs
     useScrollToTop([activeTab])
     const [isLoading, setIsLoading] = React.useState(true); // Loading state
+    // Nothing of the dashboard is rendered until access is confirmed. The check fails
+    // closed: no token, no profile, a failed request or no submitted application all
+    // send the user away instead of showing the dashboard.
+    const [accessState, setAccessState] = React.useState<'checking' | 'granted'>('checking');
     const [loanHistoryData, setLoanHistoryData] = React.useState<any[]>([]);
     const [searchQuery, setSearchQuery] = React.useState({ appId: "", phone: "" });
     const [trackResult, setTrackResult] = React.useState<any>(null);
@@ -357,25 +364,35 @@ function DashboardContent() {
     // Fetch data on mount
     React.useEffect(() => {
         async function fetchData() {
+            // Not logged in at all — never render the dashboard while waiting for a 401.
+            if (!localStorage.getItem("authToken")) {
+                router.push(getLinkWithRef("/login"));
+                return;
+            }
+
             try {
                 // Import apiClient dynamically or assume it's imported at top (Added import below)
                 const { apiClient } = await import("@/lib/api");
                 const response = await apiClient.getCompleteProfile();
 
-                if (response && response.profile) {
+                if (!response || !response.profile) {
+                    router.push(getLinkWithRef("/apply-now"));
+                    return;
+                }
+
+                if (response.profile) {
                     const p = response.profile as any;
 
-                    // Check profile completeness (Name + PAN required)
-                    const hasName = !!(p.name && p.name.trim().split(/\s+/).length >= 2);
-                    const hasPan = !!(p.panVerification?.panNumber);
-                    // Only bounce to apply-now if the user has NO loan application yet.
-                    // A user who already has an application must stay on the dashboard,
-                    // otherwise incomplete name/PAN causes an apply-now redirect loop.
-                    const alreadyApplied = Array.isArray(p.loanApplications) && p.loanApplications.length > 0;
-                    if (!alreadyApplied && (!hasName || !hasPan)) {
+                    // The dashboard is only for users who actually completed the form and
+                    // pressed the final submit. An application left behind by the
+                    // eligibility check is a draft (see lib/application-status.ts) — it
+                    // does not grant access, the user is sent back to finish applying.
+                    const submittedApplications = getSubmittedApplications<any>(p.loanApplications);
+                    if (submittedApplications.length === 0) {
                         router.push(getLinkWithRef("/apply-now"));
                         return;
                     }
+                    setAccessState('granted');
 
                     // Split name into first and last (simple logic)
                     const fullName = p.name || "";
@@ -416,30 +433,25 @@ function DashboardContent() {
                         ]);
                     }
 
-                    // Extract and merge actual loan applications/loans from the profile
-                    const allData: any[] = [];
-
-                    if (p.loanApplications && Array.isArray(p.loanApplications)) {
-                        p.loanApplications.forEach((app: any) => {
-                            allData.push({
-                                id: `APP-${app.id}`,
-                                rawId: app.id,
-                                number: formatAppNumber(app.id, p.aadhaarVerification?.aadhaarNumber),
-                                amount: app.loanAmount ? `₹${app.loanAmount.toLocaleString()}` : "Evaluating",
-                                rawAmount: app.loanAmount,
-                                date: new Date(app.createdAt).toLocaleDateString("en-GB", {
-                                    day: '2-digit', month: 'short', year: 'numeric'
-                                }),
-                                status: app.status || "PENDING",
-                                type: app.loanType?.replace(/_/g, " ") || "Personal Loan",
-                                source: 'Application'
-                            });
-                        });
-                    }
+                    // Extract and merge actual loan applications/loans from the profile.
+                    // Drafts are excluded, so they show up neither here nor in Track Loan.
+                    const allData: any[] = submittedApplications.map((app: any) => ({
+                        id: `APP-${app.id}`,
+                        rawId: app.id,
+                        number: formatAppNumber(app.id, p.aadhaarVerification?.aadhaarNumber),
+                        amount: app.loanAmount ? `₹${app.loanAmount.toLocaleString()}` : "Evaluating",
+                        rawAmount: app.loanAmount,
+                        date: new Date(app.createdAt).toLocaleDateString("en-GB", {
+                            day: '2-digit', month: 'short', year: 'numeric'
+                        }),
+                        status: app.status || "PENDING",
+                        type: app.loanType?.replace(/_/g, " ") || "Personal Loan",
+                        source: 'Application'
+                    }));
 
                     setLoanHistoryData(allData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
 
-                    const activeApp = p.loanApplications && p.loanApplications.length > 0;
+                    const activeApp = submittedApplications.length > 0;
                     const profileComplete = !!(p.panVerification?.verified && p.aadhaarVerification?.verified);
                     const requiredTypes = profileComplete 
                         ? ['BANK_STATEMENT'] 
@@ -452,7 +464,10 @@ function DashboardContent() {
                     setMissingDocs(missing);
                 }
             } catch (error) {
+                // Expired session, network error, anything: don't fall through to a
+                // rendered dashboard. Send the user back to the application flow.
                 console.error("Failed to fetch dashboard data:", error);
+                router.push(getLinkWithRef("/apply-now"));
             } finally {
                 setIsLoading(false);
             }
@@ -1019,6 +1034,16 @@ function DashboardContent() {
             <ReloanFlow />
         </div>
     );
+
+    // Access check still running, or it failed and a redirect is on its way. Either way
+    // the dashboard itself must not be on screen, not even for a frame.
+    if (accessState !== 'granted') {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <Loader2 className="w-10 h-10 text-red-600 animate-spin" />
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-white pt-24 sm:pt-32 md:pt-40 pb-12 md:pb-24 px-4 md:px-12 lg:px-24">

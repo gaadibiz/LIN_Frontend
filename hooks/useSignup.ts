@@ -76,6 +76,49 @@ export function useSignup(): UseSignupReturn {
     setIsLoading(true);
     setError(null);
 
+    // Creates the loan application out of the eligibility answers. This is called from the
+    // final submit of every flow and nowhere else, which is what makes an application row
+    // proof that the user pressed Apply Now with the whole form filled in. Anyone who
+    // drops out earlier leaves a CRM lead and a `submitted: false` eligibility check
+    // behind, but no application.
+    const createApplication = async (basicDetails: any) => {
+      const monthlyIncome = Number(basicDetails.monthlyIncome) || Number(basicDetails.monthlySalaryRange) || 30000;
+
+      let employmentType = "OTHER";
+      let companyName = basicDetails.companyName || "Self";
+      if (basicDetails.occupation === "Salaried") {
+        employmentType = "SALARIED";
+        // Fixed: Prevents backend 400 error
+        if (!basicDetails.companyName || basicDetails.companyName === "Self") companyName = "Not Provided";
+      } else if (basicDetails.occupation === "Self Employed") {
+        employmentType = "SELF_EMPLOYED";
+        if (!basicDetails.companyName) companyName = "Self";
+      }
+
+      const response = await apiClient.submitKYC({
+        companyName,
+        companyAddress: basicDetails.companyAddress || basicDetails.city || "Not Provided",
+        monthlyIncome,
+        stability: basicDetails.jobStability || "Stable",
+        currentAddress: basicDetails.currentAddress || "",
+        currentAddressType: basicDetails.currentAddressType || "Rented",
+        permanentAddress: basicDetails.permanentAddress || "",
+        currentPostalCode: basicDetails.pinCode || "",
+        loanAmount: basicDetails.loanAmount || 0,
+        purpose: basicDetails.purposeOfLoan || "Other",
+        employmentType,
+        ipAddress: basicDetails.ipAddress || (await getClientIp()),
+        submitted: true,
+      });
+
+      const application = (response as any)?.data?.application;
+      if (application) {
+        setApplicationId(application.id);
+        setApplicationCreatedAt(application.createdAt);
+      }
+      return application;
+    };
+
     try {
       switch (step) {
         case 1:
@@ -108,6 +151,22 @@ export function useSignup(): UseSignupReturn {
           }
 
         case 2:
+          // === STAGE 0: PAN gate ===
+          // A PAN belonging to another account rejects the whole application, so it is
+          // checked before anything reports submitted: true. The PAN endpoint works
+          // without a registered profile (Step2PersonalDetails already calls it while the
+          // user is still typing), so running it first is safe.
+          if (data.panNumber) {
+            try {
+              await apiClient.verifyPan(data.panNumber);
+            } catch (panErr: any) {
+              console.error("PAN Background Sync Error: ", panErr);
+              if (panErr.message?.toLowerCase().includes('already registered') || panErr.message?.toLowerCase().includes('another account')) {
+                throw new Error('This PAN number is already registered with another account.');
+              }
+            }
+          }
+
           // === STAGE 1: Register User ===
           const name = `${data.firstName} ${data.middleName ? data.middleName + ' ' : ''}${data.lastName}`.trim();
           const cleanerPhone = formData.phoneVerification.phoneNumber.replace(/\D/g, '');
@@ -119,49 +178,15 @@ export function useSignup(): UseSignupReturn {
             gender: data.gender,
             email: uniqueEmail,
             password: "Password@123",  // Dummy password
+            submitted: true, // Last step of the signup flow — user filled everything and pressed submit
           });
 
           // CRM Integration: Push lead after successful user creation
           submitLeadToKylas(data, formData.phoneVerification.phoneNumber, formData.basicDetails, formData.kylasLeadId);
 
-          // === STAGE 2: Submit KYC for Application Creation (For 3-Step Flow) ===
-          // Parse monthly income from direct input
-          let parsedIncome = Number(formData.basicDetails.monthlySalaryRange) || 30000;
-
-          // Parse Employment Type
-          let employmentType = "OTHER";
-          let companyName = "Self";
-          if (formData.basicDetails.occupation === "Salaried") {
-            employmentType = "SALARIED";
-            companyName = "Not Provided"; // Fixed: Prevents backend 400 error
-          } else if (formData.basicDetails.occupation === "Self Employed") {
-            employmentType = "SELF_EMPLOYED";
-            companyName = "Self";
-          }
-
-          let currentAppId = null;
+          // === STAGE 2: Create the application (final submit of the signup flow) ===
           try {
-             const clientIp = await getClientIp();
-             const kycResponse = await apiClient.submitKYC({
-                companyName: companyName,
-                companyAddress: formData.basicDetails.city || "Not Provided", // Also ensure this is not completely empty
-                monthlyIncome: parsedIncome,
-                stability: "Stable",
-                currentAddress: "",
-                currentAddressType: "Rented",
-                permanentAddress: "",
-                currentPostalCode: "",
-                loanAmount: formData.basicDetails.loanAmount || 0,
-                purpose: formData.basicDetails.purposeOfLoan || "Other",
-                employmentType: employmentType,
-                ipAddress: clientIp,
-             });
-
-            if ((kycResponse as any)?.data?.application) {
-              currentAppId = (kycResponse as any).data.application.id;
-              setApplicationId(currentAppId);
-              setApplicationCreatedAt((kycResponse as any).data.application.createdAt);
-            }
+            await createApplication(formData.basicDetails);
           } catch (kycErr) {
             console.error("KYC Sync Error (Non-blocking): ", kycErr);
           }
@@ -176,20 +201,6 @@ export function useSignup(): UseSignupReturn {
               } catch (aadhaarErr) {
                 console.error("Aadhaar Sync Error: ", aadhaarErr);
                 // We catch it so failure doesn't block final document upload, or throw it to enforce validation.
-              }
-            }
-          }
-
-          // === STAGE 2.6: Background Persist PAN Status ===
-          if (data.panNumber) {
-            try {
-              // If the user already pressed the button, this will act as an idempotent database overwrite update.
-              // If they didn't press the button, this gracefully registers their text input in the backend natively. 
-              await apiClient.verifyPan(data.panNumber);
-            } catch (panErr: any) {
-              console.error("PAN Background Sync Error: ", panErr);
-              if (panErr.message?.toLowerCase().includes('already registered') || panErr.message?.toLowerCase().includes('another account')) {
-                throw new Error('This PAN number is already registered with another account.');
               }
             }
           }
@@ -214,7 +225,7 @@ export function useSignup(): UseSignupReturn {
             if (data.bankStatementImage && data.bankStatementImage instanceof File && data.bankStatementImage.size > 0) { documentFormData.append('bankStatements', data.bankStatementImage); hasBulkDocs = true; }
 
             if (hasBulkDocs) {
-              await apiClient.submitDocuments(documentFormData);
+              await apiClient.submitDocuments(documentFormData, true);
             }
           } catch (docErr) {
             console.error("Document Upload Error: ", docErr);
@@ -223,47 +234,15 @@ export function useSignup(): UseSignupReturn {
           return true;
 
         case 3:
-          // Parse monthly income from direct input for apply-now flow
-          let parsedIncome2 = Number(data.monthlyIncome) || Number(data.monthlySalaryRange) || 30000;
-
-          // Parse Employment Type
-          let employmentType2 = "OTHER";
-          let companyName2 = data.companyName || "Self";
-          if (data.occupation === "Salaried") {
-            employmentType2 = "SALARIED";
-            if (!data.companyName || data.companyName === "Self") companyName2 = "Not Provided";
-          } else if (data.occupation === "Self Employed") {
-            employmentType2 = "SELF_EMPLOYED";
-            if (!data.companyName || data.companyName === "") companyName2 = "Self";
-          }
-
-          // Submit KYC details (Used by apply-now flow)
-          const clientIp3 = data.ipAddress || (await getClientIp());
-          const kycResponseSeparate = await apiClient.submitKYC({
-            companyName: companyName2,
-            companyAddress: data.companyAddress || data.city || "Not Provided",
-            monthlyIncome: parsedIncome2,
-            stability: data.jobStability || "Stable",
-            currentAddress: data.currentAddress || "",
-            currentAddressType: data.currentAddressType || "Rented",
-            permanentAddress: data.permanentAddress || "",
-            currentPostalCode: data.pinCode || "",
-            loanAmount: data.loanAmount,
-            purpose: data.purposeOfLoan,
-            employmentType: employmentType2,
-            ipAddress: clientIp3,
-          });
-          if ((kycResponseSeparate as any)?.data?.application) {
-            setApplicationId((kycResponseSeparate as any).data.application.id);
-            setApplicationCreatedAt((kycResponseSeparate as any).data.application.createdAt);
-          }
-          
-          // CRM Integration: Create initial lead for apply-now flow
+          // Eligibility passed in the apply-now / reloan flow. Deliberately creates NO
+          // application: PAN, Aadhaar and the documents are still missing, and the user may
+          // close the tab here. All this step leaves behind is a CRM lead, so the drop-off
+          // is still visible to the team.
           const leadId3 = await submitLeadToKylas(formData.personalDetails, formData.phoneVerification?.phoneNumber || "", data);
           if (leadId3) {
              updateFormData('kylasLeadId', leadId3);
           }
-          
+
           return true;
 
         case 4:
@@ -279,7 +258,10 @@ export function useSignup(): UseSignupReturn {
           }
           documentFormDataSeparate.append('bankStatements', data.bankStatementFile);
 
-          await apiClient.submitDocuments(documentFormDataSeparate);
+          // Final step of the apply-now / dashboard flow: the bank statement is in hand, so
+          // the application gets created and submitted in one go.
+          await createApplication(formData.basicDetails);
+          await apiClient.submitDocuments(documentFormDataSeparate, true);
           return true;
 
         case 5:
@@ -318,20 +300,34 @@ export function useSignup(): UseSignupReturn {
 
         
         case 7:
+          // PAN gate first — a PAN owned by another account rejects the application, and
+          // nothing may report submitted: true before that check has passed.
+          if (data.panNumber) {
+            try {
+              await apiClient.verifyPan(data.panNumber);
+            } catch (e: any) {
+              if (e.message?.toLowerCase().includes('already registered')) throw new Error('This PAN number is already registered with another account.');
+            }
+          }
+
           // Update User Info for Apply Now Flow
           const name7 = `${data.firstName} ${data.middleName ? data.middleName + ' ' : ''}${data.lastName}`.trim();
           const email7 = data.email || undefined;
-          
+
           await apiClient.registerUser({
             name: name7,
             dob: data.dateOfBirth,
             gender: data.gender,
             email: email7,
             password: "Password@123",
+            submitted: true, // Last step of the apply-now flow
           });
 
           // CRM Integration: Push lead after successful user creation for apply-now flow
           submitLeadToKylas(data, formData.phoneVerification?.phoneNumber || "", formData.basicDetails, formData.kylasLeadId);
+
+          // Create the application — the profile is in place and the form is complete
+          await createApplication(formData.basicDetails);
 
           // Verify Aadhaar
           if (data.aadhaarNumber) {
@@ -340,15 +336,6 @@ export function useSignup(): UseSignupReturn {
               try {
                 await apiClient.verifyAadhaarOtp(cleanAadhaar, "261102");
               } catch (e) { console.error(e) }
-            }
-          }
-
-          // Verify PAN
-          if (data.panNumber) {
-            try {
-              await apiClient.verifyPan(data.panNumber);
-            } catch (e: any) {
-              if (e.message?.toLowerCase().includes('already registered')) throw new Error('This PAN number is already registered with another account.');
             }
           }
 
@@ -361,7 +348,7 @@ export function useSignup(): UseSignupReturn {
             let hasBulkDocs7 = false;
             if (data.salarySlipImage && data.salarySlipImage instanceof File) { documentFormData7.append('salarySlips', data.salarySlipImage); hasBulkDocs7 = true; }
             if (data.bankStatementImage && data.bankStatementImage instanceof File) { documentFormData7.append('bankStatements', data.bankStatementImage); hasBulkDocs7 = true; }
-            if (hasBulkDocs7) await apiClient.submitDocuments(documentFormData7);
+            if (hasBulkDocs7) await apiClient.submitDocuments(documentFormData7, true);
           } catch (e) { console.error(e) }
 
           return true;

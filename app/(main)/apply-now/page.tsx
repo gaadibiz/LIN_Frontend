@@ -33,7 +33,6 @@ const STEPS: Step[] = [
 import { Suspense } from "react"
 import { Check, ClipboardList, Clock, IndianRupee, MessageCircle, Loader2, Bookmark, FileX2, Calendar } from "lucide-react"
 import { formatAppNumber } from "@/lib/utils"
-import { getClientIp } from "@/lib/getClientIP"
 
 function ApplyNowContent() {
     const { getLinkWithRef } = useAffiliate();
@@ -90,12 +89,7 @@ function ApplyNowContent() {
             city: data.city
         });
 
-        // get the client IP 
-        const clientIp = await getClientIp();
-
-        console.log(clientIp,'------------->>>>');
-        
-
+        // The client IP is captured with the application itself, at final submit.
 
         try {
             const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'}/api/loans/check-eligibility`, {
@@ -107,7 +101,9 @@ function ApplyNowContent() {
                     occupation: data.occupation,
                     salaryReceivedIn: data.salaryReceivedIn,
                     monthlySalaryRange: data.monthlySalaryRange,
-                    city: data.city
+                    city: data.city,
+                    // Only the eligibility form is filled at this point
+                    submitted: false
                 })
             });
             const result = await response.json();
@@ -120,14 +116,15 @@ function ApplyNowContent() {
                     occupation: data.occupation,
                     monthlySalaryRange: data.monthlySalaryRange,
                     salaryReceivedIn: data.salaryReceivedIn,
-                    city: data.city,
-                    ipAddress: clientIp
+                    city: data.city
                 };
+                // Records the lead only — the application is created when the user
+                // presses Apply Now at the end of the form.
                 const success = await submitStep(3, combinedData);
                 if (success) {
                     handleNext();
                 } else {
-                    alert("Failed to create application. Please try again.");
+                    alert("Something went wrong. Please try again.");
                 }
             } else {
                 setEligibilityStatus('rejected');
@@ -149,14 +146,15 @@ function ApplyNowContent() {
                     occupation: data.occupation,
                     monthlySalaryRange: data.monthlySalaryRange,
                     salaryReceivedIn: data.salaryReceivedIn,
-                    city: data.city,
-                    ipAddress: clientIp
+                    city: data.city
                 };
+                // Records the lead only — the application is created when the user
+                // presses Apply Now at the end of the form.
                 const success = await submitStep(3, combinedData);
                 if (success) {
                     handleNext();
                 } else {
-                    alert("Failed to create application. Please try again.");
+                    alert("Something went wrong. Please try again.");
                 }
             }
         } finally {
