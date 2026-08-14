@@ -190,9 +190,6 @@ class ApiClient {
         code,
         attribution, // Send attribution data to backend
         ...utm,
-        // OTP verification is never the last step of the application, so this lead
-        // stays "not submitted" until the user actually finishes the form.
-        submitted: false,
       }),
     });
 
@@ -266,7 +263,6 @@ class ApiClient {
     gender: string;
     email: string;
     password: string;
-    submitted?: boolean; // true only when this call is part of the final "Apply Now" submit
   }): Promise<ApiResponse> {
     // Check for attribution data
     let attribution = null;
@@ -323,7 +319,10 @@ class ApiClient {
     termMonths?: number;
     employmentType?: string;
     ipAddress?: string;
-    submitted?: boolean; // false while the user is still filling the form, true on final submit
+    // The one and only `submitted` flag the frontend sends. Set to true by createApplication
+    // (hooks/useSignup.ts) on the final "Submit Application" click, so the backend can tell a
+    // filed application from an abandoned one. No other endpoint receives this field.
+    submitted?: boolean;
   }): Promise<ApiResponse> {
     return this.request<ApiResponse>('/api/kyc', {
       method: 'POST',
@@ -358,11 +357,9 @@ class ApiClient {
   }
 
   // Document verification endpoints
-  // `submitted` marks whether this upload completes the application (final "Apply Now"
-  // click) or is just an intermediate save. Sent as the string "true"/"false" — FormData
-  // cannot carry booleans.
-  async submitDocuments(formData: FormData, submitted = false): Promise<ApiResponse> {
-    formData.set('submitted', String(submitted));
+  // No `submitted` flag here: submitKYC is the only call that carries it (see the
+  // createApplication helper in hooks/useSignup.ts).
+  async submitDocuments(formData: FormData): Promise<ApiResponse> {
     return this.request<ApiResponse>('/api/document/submit', {
       method: 'POST',
       body: formData,

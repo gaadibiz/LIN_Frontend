@@ -14,9 +14,13 @@ interface Step0Props {
   isLoading?: boolean
   formData?: EligibilityForm
   isProfileComplete?: boolean
+  // The apply-now funnel shows a phone screen before this one, so eligibility is its
+  // step 2 of 3. The dashboard reloan flow starts here (user is already logged in) and
+  // passes its own label.
+  stepLabel?: string
 }
 
-export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfileComplete = false }: Step0Props) {
+export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfileComplete = false, stepLabel = "Step 2 of 3" }: Step0Props) {
   const { register, handleSubmit, formState: { errors, isValid }, watch, setValue, reset } = useForm<EligibilityForm>({
     mode: "onChange",
     resolver: zodResolver(eligibilitySchema),
@@ -87,7 +91,7 @@ export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfile
             </div>
           </div>
           <div>
-            <div className="text-sm font-bold text-red-600 mb-0.5">Step 2 of 3</div>
+            <div className="text-sm font-bold text-red-600 mb-0.5">{stepLabel}</div>
             <h2 className="text-lg sm:text-xl font-bold text-[#1c2b4f] leading-tight mb-1">Tell Us Your Loan & Income Details</h2>
             <p className="text-xs text-gray-500 font-medium leading-relaxed mt-1">This helps us check your eligibility and give instant approval.</p>
           </div>

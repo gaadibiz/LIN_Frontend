@@ -127,9 +127,7 @@ function ReloanFlow() {
                     occupation: data.occupation,
                     salaryReceivedIn: data.salaryReceivedIn,
                     monthlySalaryRange: data.monthlySalaryRange,
-                    city: data.city,
-                    // Only the eligibility form is filled at this point
-                    submitted: false
+                    city: data.city
                 })
             });
             const result = await response.json();
@@ -283,6 +281,7 @@ function ReloanFlow() {
                                 isLoading={isCheckingEligibility}
                                 formData={formData.basicDetails as any}
                                 isProfileComplete={true}
+                                stepLabel="Step 1 of 2"
                             />
                         )}
                         {internalStep === 2 && (

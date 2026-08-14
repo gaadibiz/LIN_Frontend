@@ -79,8 +79,11 @@ export function useSignup(): UseSignupReturn {
     // Creates the loan application out of the eligibility answers. This is called from the
     // final submit of every flow and nowhere else, which is what makes an application row
     // proof that the user pressed Apply Now with the whole form filled in. Anyone who
-    // drops out earlier leaves a CRM lead and a `submitted: false` eligibility check
-    // behind, but no application.
+    // drops out earlier leaves a CRM lead behind, but no application.
+    //
+    // submitKYC is the ONLY call in the app that carries the `submitted` flag — the
+    // eligibility check, OTP verification, user registration and document upload all send
+    // no such field, so the backend has a single unambiguous "application filed" signal.
     const createApplication = async (basicDetails: any) => {
       const monthlyIncome = Number(basicDetails.monthlyIncome) || Number(basicDetails.monthlySalaryRange) || 30000;
 
@@ -178,7 +181,6 @@ export function useSignup(): UseSignupReturn {
             gender: data.gender,
             email: uniqueEmail,
             password: "Password@123",  // Dummy password
-            submitted: true, // Last step of the signup flow — user filled everything and pressed submit
           });
 
           // CRM Integration: Push lead after successful user creation
@@ -225,7 +227,7 @@ export function useSignup(): UseSignupReturn {
             if (data.bankStatementImage && data.bankStatementImage instanceof File && data.bankStatementImage.size > 0) { documentFormData.append('bankStatements', data.bankStatementImage); hasBulkDocs = true; }
 
             if (hasBulkDocs) {
-              await apiClient.submitDocuments(documentFormData, true);
+              await apiClient.submitDocuments(documentFormData);
             }
           } catch (docErr) {
             console.error("Document Upload Error: ", docErr);
@@ -261,7 +263,7 @@ export function useSignup(): UseSignupReturn {
           // Final step of the apply-now / dashboard flow: the bank statement is in hand, so
           // the application gets created and submitted in one go.
           await createApplication(formData.basicDetails);
-          await apiClient.submitDocuments(documentFormDataSeparate, true);
+          await apiClient.submitDocuments(documentFormDataSeparate);
           return true;
 
         case 5:
@@ -320,7 +322,6 @@ export function useSignup(): UseSignupReturn {
             gender: data.gender,
             email: email7,
             password: "Password@123",
-            submitted: true, // Last step of the apply-now flow
           });
 
           // CRM Integration: Push lead after successful user creation for apply-now flow
@@ -348,7 +349,7 @@ export function useSignup(): UseSignupReturn {
             let hasBulkDocs7 = false;
             if (data.salarySlipImage && data.salarySlipImage instanceof File) { documentFormData7.append('salarySlips', data.salarySlipImage); hasBulkDocs7 = true; }
             if (data.bankStatementImage && data.bankStatementImage instanceof File) { documentFormData7.append('bankStatements', data.bankStatementImage); hasBulkDocs7 = true; }
-            if (hasBulkDocs7) await apiClient.submitDocuments(documentFormData7, true);
+            if (hasBulkDocs7) await apiClient.submitDocuments(documentFormData7);
           } catch (e) { console.error(e) }
 
           return true;
