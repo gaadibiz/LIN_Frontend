@@ -1,4 +1,4 @@
-# LIN Frontend (LoanInNeed)
+  # LIN Frontend (LoanInNeed)
 
 This is the frontend repository for the LoanInNeed (LIN) application. It is built with [Next.js](https://nextjs.org) (v15) and React 19, utilizing a modern, scalable stack for optimal performance and developer experience.
 
