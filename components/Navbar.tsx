@@ -105,6 +105,7 @@ export default function Navbar() {
   React.useEffect(() => {
     const userToken = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
     const partnerToken = typeof window !== 'undefined' ? localStorage.getItem('partnerAuthToken') : null;
+    let timeoutId: NodeJS.Timeout;
 
     if (userToken) {
       setIsLoggedIn(true);
@@ -114,11 +115,26 @@ export default function Navbar() {
       import("@/lib/api").then(({ apiClient }) => {
         apiClient.getCompleteProfile().then(res => {
           setIsProfileComplete(true);
-          setCanAccessDashboard(hasLoanApplication(res?.profile));
+          const hasApp = hasLoanApplication(res?.profile);
+          setCanAccessDashboard(hasApp);
+          
+          if (!hasApp) {
+            timeoutId = setTimeout(() => {
+              localStorage.removeItem('authToken');
+              localStorage.removeItem('userData');
+              window.location.replace("/");
+            }, 10 * 60 * 1000); // 10 minutes
+          }
         }).catch(e => {
           console.error("Failed to load profile in navbar:", e);
           setIsProfileComplete(true);
           setCanAccessDashboard(false);
+          
+          timeoutId = setTimeout(() => {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('userData');
+            window.location.replace("/");
+          }, 10 * 60 * 1000); // 10 minutes
         });
       });
     } else if (partnerToken) {
@@ -148,6 +164,10 @@ export default function Navbar() {
       setIsProfileComplete(true);
       setCanAccessDashboard(false);
     }
+    
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [pathname]);
 
   // Helper: wrap Link to auto-close the sheet on mobile nav
@@ -266,27 +286,51 @@ export default function Navbar() {
                 </NavigationMenuItem>
 
                 {isLoggedIn ? (
-                  <NavigationMenuItem>
-                    <NavigationMenuLink asChild>
-                      {canAccessDashboard ? (
-                        <Link href={getLinkWithRef(dashboardLink)}>
-                          <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 font-semibold shadow-sm">
-                            View Dashboard
-                          </Button>
-                        </Link>
+                      canAccessDashboard ? (
+                        <NavigationMenuItem>
+                          <NavigationMenuTrigger className="text-red-600 font-semibold h-9 px-4 py-2 hover:bg-red-50 hover:text-red-700 data-[state=open]:bg-red-50 data-[active]:bg-red-50">
+                            Account
+                          </NavigationMenuTrigger>
+                          <NavigationMenuContent>
+                            <ul className="grid w-[150px] gap-2 p-3">
+                              <li>
+                                <Link href={getLinkWithRef(dashboardLink)} className="block p-2 rounded-md hover:bg-gray-100 text-sm font-medium">
+                                  Dashboard
+                                </Link>
+                              </li>
+                              <li>
+                                <button
+                                  onClick={() => {
+                                    localStorage.removeItem('authToken');
+                                    localStorage.removeItem('userData');
+                                    window.location.replace(getLinkWithRef("/"));
+                                  }}
+                                  className="w-full text-left block p-2 rounded-md hover:bg-red-50 text-red-600 text-sm font-medium transition-colors"
+                                >
+                                  Logout
+                                </button>
+                              </li>
+                            </ul>
+                          </NavigationMenuContent>
+                        </NavigationMenuItem>
                       ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled
-                          title="Apply for a loan first to access your dashboard"
-                          className="text-red-600 border-red-200 font-semibold shadow-sm opacity-50 cursor-not-allowed"
-                        >
-                          View Dashboard
-                        </Button>
-                      )}
-                    </NavigationMenuLink>
-                  </NavigationMenuItem>
+                        <NavigationMenuItem>
+                          <NavigationMenuLink asChild>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                localStorage.removeItem('authToken');
+                                localStorage.removeItem('userData');
+                                window.location.replace(getLinkWithRef("/"));
+                              }}
+                              className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 font-semibold shadow-sm"
+                            >
+                              Logout
+                            </Button>
+                          </NavigationMenuLink>
+                        </NavigationMenuItem>
+                      )
                 ) : (
                   <NavigationMenuItem>
                     <NavigationMenuLink
@@ -430,17 +474,33 @@ export default function Navbar() {
                   <div className="pt-4 flex flex-col space-y-3">
                     {isLoggedIn ? (
                       canAccessDashboard ? (
-                        <MobileLink href={dashboardLink}>
-                          <Button variant="outline" className="w-full text-red-600 border-red-200 hover:bg-red-50">View Dashboard</Button>
-                        </MobileLink>
+                        <div className="flex flex-col space-y-2">
+                          <MobileLink href={dashboardLink}>
+                            <Button variant="outline" className="w-full text-red-600 border-red-200 hover:bg-red-50">Dashboard</Button>
+                          </MobileLink>
+                          <Button
+                            variant="outline"
+                            onClick={() => {
+                              localStorage.removeItem('authToken');
+                              localStorage.removeItem('userData');
+                              window.location.replace(getLinkWithRef("/"));
+                            }}
+                            className="w-full text-red-600 border-red-200 hover:bg-red-50"
+                          >
+                            Logout
+                          </Button>
+                        </div>
                       ) : (
                         <Button
                           variant="outline"
-                          disabled
-                          title="Apply for a loan first to access your dashboard"
-                          className="w-full text-red-600 border-red-200 opacity-50 cursor-not-allowed"
+                          onClick={() => {
+                            localStorage.removeItem('authToken');
+                            localStorage.removeItem('userData');
+                            window.location.replace(getLinkWithRef("/"));
+                          }}
+                          className="w-full text-red-600 border-red-200 hover:bg-red-50"
                         >
-                          View Dashboard
+                          Logout
                         </Button>
                       )
                     ) : (

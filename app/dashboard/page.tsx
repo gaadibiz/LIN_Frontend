@@ -375,7 +375,7 @@ function DashboardContent() {
                 const response = await apiClient.getCompleteProfile();
 
                 if (!response || !response.profile) {
-                    router.push(getLinkWithRef("/apply-now"));
+                    router.push(getLinkWithRef("/"));
                     return;
                 }
 
@@ -388,7 +388,7 @@ function DashboardContent() {
                     // does not grant access, the user is sent back to finish applying.
                     const submittedApplications = getSubmittedApplications<any>(p.loanApplications);
                     if (submittedApplications.length === 0) {
-                        router.push(getLinkWithRef("/apply-now"));
+                        router.push(getLinkWithRef("/"));
                         return;
                     }
                     setAccessState('granted');
