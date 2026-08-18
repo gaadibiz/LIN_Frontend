@@ -196,6 +196,12 @@ export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfile
             autoComplete="off"
             maxLength={8}
             placeholder="Enter Monthly Salary"
+            onFocus={(e) => {
+              if (e.target.value === "0") {
+                e.target.value = "";
+                salaryField.onChange(e);
+              }
+            }}
             onChange={(e) => {
               sanitizeDigits(e)
               salaryField.onChange(e)

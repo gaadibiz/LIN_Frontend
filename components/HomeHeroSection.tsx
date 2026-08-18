@@ -1,16 +1,24 @@
 "use client";
 
 import Image from "next/image";
-
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "./ui/button";
 import { LucideCircleCheck } from "lucide-react";
 import Link from "next/link";
 import { useAffiliate } from "@/hooks/useAffiliate";
 
-
 const HomeHeroSection = () => {
   const { getLinkWithRef } = useAffiliate();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const userToken = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+    const partnerToken = typeof window !== 'undefined' ? localStorage.getItem('partnerAuthToken') : null;
+    if (userToken || partnerToken) {
+      setIsLoggedIn(true);
+    }
+  }, []);
+
   return (
     <section className="font-sans items-center justify-items-center gap-8 md:gap-16 flex flex-col md:flex-row w-full mt-24 sm:mt-28 md:mt-20 mb-8 md:mb-12">
 
@@ -29,7 +37,7 @@ const HomeHeroSection = () => {
             personal loans. Simple online process, flexible tenures, and money
             in your account within hours.
           </p>
-          <Link href={getLinkWithRef("/signup")}>
+          <Link href={getLinkWithRef(isLoggedIn ? "/apply-now" : "/signup")}>
             <Button className="w-full sm:w-56 p-5 sm:p-6 text-sm sm:text-base my-3">
               Check loan eligibility now
             </Button>

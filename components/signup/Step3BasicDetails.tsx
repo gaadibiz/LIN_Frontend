@@ -86,6 +86,12 @@ export function Step3BasicDetails({ onSubmit, onBack, formData, setFormData, emp
                 placeholder="Enter loan amount"
                 className="pl-8 h-12"
                 {...register("loanAmount", { valueAsNumber: true })}
+                onFocus={(e) => {
+                  if (e.target.value === "0") {
+                    e.target.value = "";
+                    handleNumberChange("loanAmount", "");
+                  }
+                }}
                 onChange={(e) => handleNumberChange("loanAmount", e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') {
@@ -200,6 +206,12 @@ export function Step3BasicDetails({ onSubmit, onBack, formData, setFormData, emp
                 placeholder={employmentType === "Salaried" ? "Enter monthly salary" : "Enter monthly income"}
                 className="pl-8 h-12"
                 {...register("monthlyIncome", { valueAsNumber: true })}
+                onFocus={(e) => {
+                  if (e.target.value === "0") {
+                    e.target.value = "";
+                    handleNumberChange("monthlyIncome", "");
+                  }
+                }}
                 onChange={(e) => handleNumberChange("monthlyIncome", e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') {
