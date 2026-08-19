@@ -92,9 +92,13 @@ function ApplyNowContent() {
         // The client IP is captured with the application itself, at final submit.
 
         try {
+            const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
             const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'}/api/loans/check-eligibility`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
                 body: JSON.stringify({
                     loanAmount: data.loanAmount,
                     purposeOfLoan: data.purposeOfLoan,

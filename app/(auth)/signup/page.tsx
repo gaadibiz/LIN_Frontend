@@ -1,12 +1,12 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { useSignup } from "@/hooks/useSignup"
 import { useScrollToTop } from "@/hooks/useScrollToTop"
 import { Step0EligibilityCheck } from "@/components/signup/Step0EligibilityCheck"
 import { Step1PhoneVerification } from "@/components/signup/Step1PhoneVerification"
 import { Step2PersonalDetails } from "@/components/signup/Step2PersonalDetails"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useAffiliate } from "@/hooks/useAffiliate"
 import {
   PhoneVerificationData,
@@ -17,6 +17,7 @@ import { Suspense } from "react"
 import Image from "next/image"
 import { Loader2, CheckCircle2, Calendar, FileX2, Check, ClipboardList, Clock, IndianRupee, MessageCircle, Bookmark } from "lucide-react"
 import { formatAppNumber } from "@/lib/utils"
+import { toast } from "sonner"
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,8 @@ const STEPS: Step[] = [
 ]
 
 function SignupContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { getLinkWithRef } = useAffiliate();
   const {
     currentStep, // 1 to 5
@@ -52,6 +55,96 @@ function SignupContent() {
 
   // Step changes are handled inside useSignup; this covers the success/rejection screens
   useScrollToTop([eligibilityStatus, registrationSuccessful])
+
+  // Notify the user if they landed here because their session expired mid-flow
+  // (apiClient redirects 401 responses to a plain /signup — see lib/api.ts). The expiry
+  // flag and the real backend error message are stashed in sessionStorage rather than the
+  // URL, so the address bar stays as just /signup.
+  useEffect(() => {
+    if (sessionStorage.getItem('sessionExpired') === 'true') {
+      sessionStorage.removeItem('sessionExpired');
+      const backendMessage = sessionStorage.getItem('sessionExpiredMessage');
+      sessionStorage.removeItem('sessionExpiredMessage');
+      toast.error(backendMessage || "Your session has expired. Please verify your phone number again.");
+    }
+  }, [])
+
+  // Auth check & Parameter pre-filling
+  useEffect(() => {
+    // If a token is already present, skip straight to Step 2 (Eligibility Check).
+    // If the token has actually expired, the profile fetch below will get a 401 and
+    // apiClient's central handler will redirect back here to resignup.
+    const hasToken = typeof window !== 'undefined' && !!localStorage.getItem('authToken');
+    if (hasToken) {
+      setCurrentStep(2);
+    }
+
+    // Read URL query parameters
+    const paramPhone = searchParams.get('phone') || 
+                       searchParams.get('phoneNumber') || 
+                       searchParams.get('contactNo') || 
+                       searchParams.get('contactNumber') || 
+                       searchParams.get('mobile') || 
+                       searchParams.get('mobileNumber');
+
+    if (paramPhone) {
+      updateFormData('phoneVerification', {
+        ...formData.phoneVerification,
+        phoneNumber: paramPhone.replace(/\D/g, '').slice(-10),
+      });
+    }
+
+    const paramLoanAmount = searchParams.get('loanAmount');
+    const paramPurposeOfLoan = searchParams.get('purposeOfLoan');
+    const paramOccupation = searchParams.get('occupation');
+    const paramMonthlySalaryRange = searchParams.get('monthlySalaryRange') || searchParams.get('monthlySalary') || searchParams.get('monthlyIncome');
+    const paramSalaryReceivedIn = searchParams.get('salaryReceivedIn');
+    const paramCity = searchParams.get('city');
+
+    if (paramLoanAmount || paramPurposeOfLoan || paramOccupation || paramMonthlySalaryRange || paramSalaryReceivedIn || paramCity) {
+      updateFormData('basicDetails', {
+        ...formData.basicDetails,
+        loanAmount: paramLoanAmount ? Number(paramLoanAmount) : (formData.basicDetails.loanAmount || 0),
+        purposeOfLoan: paramPurposeOfLoan || formData.basicDetails.purposeOfLoan || "",
+        occupation: paramOccupation || formData.basicDetails.occupation || "Salaried",
+        monthlySalaryRange: paramMonthlySalaryRange || formData.basicDetails.monthlySalaryRange || "",
+        salaryReceivedIn: paramSalaryReceivedIn || formData.basicDetails.salaryReceivedIn || "Bank Transfer",
+        city: paramCity || formData.basicDetails.city || "",
+      });
+    }
+
+    // Also populate phone and user data from profile if available. Only attempted when a
+    // token exists — otherwise this 401s and apiClient's central handler would bounce an
+    // anonymous first-time visitor straight back to /signup?expired=true.
+    if (hasToken) {
+      import("@/lib/api").then(({ apiClient }) => {
+        apiClient.getCompleteProfile().then((res) => {
+          if (res && res.profile) {
+            const p = res.profile as any;
+            if (p.phone) {
+              updateFormData('phoneVerification', {
+                ...formData.phoneVerification,
+                phoneNumber: p.phone.replace(/\D/g, '').slice(-10),
+              });
+            }
+            if (p.panVerification || p.name || p.aadhaarVerification) {
+              updateFormData('personalDetails', {
+                ...formData.personalDetails,
+                panNumber: p.panVerification?.panNumber || formData.personalDetails?.panNumber || "",
+                firstName: p.name || formData.personalDetails?.firstName || "",
+                aadhaarNumber: p.aadhaarVerification?.aadhaarNumber || formData.personalDetails?.aadhaarNumber || "",
+                email: p.email || formData.personalDetails?.email || "",
+                dateOfBirth: p.dob ? new Date(p.dob).toISOString().split('T')[0] : formData.personalDetails?.dateOfBirth || "",
+                gender: p.gender === "MALE" ? "Male" : (p.gender === "FEMALE" ? "Female" : formData.personalDetails?.gender || "Male"),
+              });
+            }
+          }
+        }).catch((e) => {
+          console.error("Failed to load user profile in signup:", e);
+        });
+      });
+    }
+  }, [searchParams]);
 
   const handleNext = (): void => {
     if (currentStep < STEPS.length) {
@@ -92,9 +185,13 @@ function SignupContent() {
     });
 
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'}/api/loans/check-eligibility`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           loanAmount: data.loanAmount,
           purposeOfLoan: data.purposeOfLoan,
@@ -127,8 +224,6 @@ function SignupContent() {
       setIsCheckingEligibility(false);
     }
   }
-
-  const router = useRouter();
 
   const handlePersonalDetailsSubmit = async (data: PersonalDetailsData): Promise<void> => {
     updateFormData('personalDetails', data)
@@ -471,7 +566,16 @@ function SignupContent() {
                         otpSent={otpSent}
                         resendTimer={otpResendTimer}
                         onResend={resendOtp}
-                        formData={formData.phoneVerification}
+                        formData={{
+                          phoneNumber: formData.phoneVerification.phoneNumber || 
+                            (searchParams.get('phone') || 
+                             searchParams.get('phoneNumber') || 
+                             searchParams.get('contactNo') || 
+                             searchParams.get('contactNumber') || 
+                             searchParams.get('mobile') || 
+                             searchParams.get('mobileNumber') || '').replace(/\D/g, '').slice(-10),
+                          otp: formData.phoneVerification.otp,
+                        }}
                         setFormData={(data) => updateFormData('phoneVerification', data)}
                         isLoading={isLoading}
                         serverError={error}
@@ -482,6 +586,14 @@ function SignupContent() {
                       <Step0EligibilityCheck
                         onSubmit={handleEligibilitySubmit}
                         isLoading={isCheckingEligibility}
+                        formData={{
+                          loanAmount: formData.basicDetails.loanAmount || (searchParams.get('loanAmount') ? Number(searchParams.get('loanAmount')) : undefined),
+                          purposeOfLoan: formData.basicDetails.purposeOfLoan || searchParams.get('purposeOfLoan') || "",
+                          monthlySalaryRange: formData.basicDetails.monthlySalaryRange || searchParams.get('monthlySalaryRange') || searchParams.get('monthlySalary') || searchParams.get('monthlyIncome') || "",
+                          occupation: (formData.basicDetails.occupation as any) || searchParams.get('occupation') || "Salaried",
+                          salaryReceivedIn: (formData.basicDetails.salaryReceivedIn as any) || searchParams.get('salaryReceivedIn') || "Bank Transfer",
+                          city: formData.basicDetails.city || searchParams.get('city') || "",
+                        }}
                       />
                     )}
 

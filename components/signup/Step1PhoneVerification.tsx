@@ -34,11 +34,20 @@ export function Step1PhoneVerification({
   serverError
 }: Step1Props) {
   const { getLinkWithRef } = useAffiliate();
-  const { register, handleSubmit, formState: { errors, isValid }, setValue, watch } = useForm<PhoneVerificationForm>({
+  const { register, handleSubmit, formState: { errors, isValid }, setValue, watch, reset, trigger } = useForm<PhoneVerificationForm>({
     mode: "onChange",
     resolver: zodResolver(otpSent ? otpVerificationSchema : phoneNumberSchema),
     defaultValues: formData
   })
+
+  React.useEffect(() => {
+    if (formData?.phoneNumber) {
+      reset(formData);
+      setTimeout(() => {
+        trigger("phoneNumber");
+      }, 0);
+    }
+  }, [formData?.phoneNumber, reset, trigger]);
 
   const phoneNumber = watch("phoneNumber")
 

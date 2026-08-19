@@ -120,9 +120,9 @@ class ApiClient {
 
         console.error(`❌ [API Error] Status ${response.status} at ${endpoint}:`, errorMessage, errorData || '');
 
-        // Session expired: alert the user, and log them out once they acknowledge it.
-        if (response.status === 401 && errorMessage.toLowerCase().includes('jwt expired')) {
-          this.handleSessionExpired();
+        // Session expired or unauthorized: log them out and redirect to signup
+        if (response.status === 401 && !endpoint.includes('/api/auth/phone/verify-otp') && !endpoint.includes('/api/users/login') && !endpoint.includes('/api/partners/login')) {
+          this.handleSessionExpired(errorMessage);
         }
 
         throw new Error(errorMessage);
@@ -509,15 +509,18 @@ class ApiClient {
     this.token = null;
     if (typeof window !== 'undefined') {
       localStorage.removeItem('authToken');
+      localStorage.removeItem('userData');
     }
   }
 
   // Guard so a burst of 401s only triggers a single expiry alert / logout.
   private sessionExpiredHandled = false;
 
-  // Shows an alert; once the user clicks OK the token is cleared and they are
-  // sent to the login page. Kept idempotent via the guard flag above.
-  private handleSessionExpired() {
+  // Clears token and redirects to a plain /signup so the user re-verifies their phone
+  // number, rather than sending them to a separate login page. The expiry flag and the
+  // server's own error message are stashed in sessionStorage (not the URL) so the signup
+  // page can show the real reason without any query params leaking into the address bar.
+  private handleSessionExpired(message?: string) {
     if (typeof window === 'undefined') {
       this.clearToken();
       return;
@@ -525,11 +528,12 @@ class ApiClient {
     if (this.sessionExpiredHandled) return;
     this.sessionExpiredHandled = true;
 
-    // window.alert blocks until the user clicks OK — i.e. logout happens
-    // only after the user acknowledges the "session expired" alert.
-    window.alert('Your session has expired. Please log in again.');
     this.clearToken();
-    window.location.href = '/login?expired=true';
+    sessionStorage.setItem('sessionExpired', 'true');
+    if (message) {
+      sessionStorage.setItem('sessionExpiredMessage', message);
+    }
+    window.location.href = '/signup';
   }
 
   getToken(): string | null {

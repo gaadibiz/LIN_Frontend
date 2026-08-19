@@ -12,9 +12,11 @@ import { useLogin } from "@/hooks/useLogin"
 import { ArrowLeft, Loader2, CheckCircle2 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useAffiliate } from "@/hooks/useAffiliate"
 
+
+import { toast } from "sonner"
 
 import { Suspense } from "react"
 
@@ -22,6 +24,7 @@ export const dynamic = "force-dynamic";
 
 function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { getLinkWithRef } = useAffiliate()
 
   const {
@@ -45,6 +48,13 @@ function LoginForm() {
 
   const [consentChecked, setConsentChecked] = useState(false)
 
+  // Notify user if redirected due to session expiration
+  useEffect(() => {
+    if (searchParams.get('expired') === 'true') {
+      toast.error("Your session has expired. Please log in again to continue.");
+    }
+  }, [searchParams])
+
   const step1Form = useForm<LoginStep1Form>({
     mode: "onChange",
     resolver: zodResolver(loginStep1Schema),
@@ -60,6 +70,21 @@ function LoginForm() {
       otp: ""
     }
   })
+
+  // Pre-fill the phone number if it was passed in via query params (same param names
+  // the /signup page accepts, so the same referral/deeplink URLs work for both).
+  useEffect(() => {
+    const paramPhone = searchParams.get('phone') ||
+                       searchParams.get('phoneNumber') ||
+                       searchParams.get('contactNo') ||
+                       searchParams.get('contactNumber') ||
+                       searchParams.get('mobile') ||
+                       searchParams.get('mobileNumber');
+
+    if (paramPhone) {
+      step1Form.setValue('phoneNumber', paramPhone.replace(/\D/g, '').slice(-10), { shouldValidate: true });
+    }
+  }, [searchParams])
 
   useEffect(() => {
     if (step === 2 && otpResendTimer > 0) {
@@ -86,10 +111,23 @@ function LoginForm() {
   const handleOtpSubmit = async (data: LoginOtpForm) => {
     const success = await verifyOtp(data)
     if (success) {
-      // Decide destination based on whether the user already has a loan application.
-      // No application yet -> Apply Now. Has at least one -> Dashboard.
       setTimeout(async () => {
         try {
+          const returnUrl = searchParams.get('returnUrl');
+          if (returnUrl) {
+            router.push(getLinkWithRef(returnUrl));
+            return;
+          }
+
+          // If eligibility query parameters were passed directly to /login, forward to /signup with those params
+          const hasEligibilityParams = searchParams.has('loanAmount') || searchParams.has('city') || searchParams.has('purposeOfLoan');
+          if (hasEligibilityParams) {
+            router.push(getLinkWithRef(`/signup?${searchParams.toString()}`));
+            return;
+          }
+
+          // Decide destination based on whether the user already has a loan application.
+          // No application yet -> Apply Now. Has at least one -> Dashboard.
           const { apiClient } = await import("@/lib/api");
           const { getPostAuthRoute } = await import("@/lib/utils");
           const res = await apiClient.getCompleteProfile();
@@ -97,10 +135,15 @@ function LoginForm() {
 
           router.push(getLinkWithRef(getPostAuthRoute(p)));
         } catch {
-          // Fallback to apply-now if the profile check fails.
-          router.push(getLinkWithRef("/apply-now"));
+          const returnUrl = searchParams.get('returnUrl');
+          if (returnUrl) {
+            router.push(getLinkWithRef(returnUrl));
+          } else {
+            // Fallback to apply-now if the profile check fails.
+            router.push(getLinkWithRef("/apply-now"));
+          }
         }
-      }, 2000)
+      }, 1500)
     }
   }
 

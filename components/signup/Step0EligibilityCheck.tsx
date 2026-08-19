@@ -12,7 +12,7 @@ import { FileText, Wallet, Target, Briefcase, Landmark, MapPin, Banknote, Credit
 interface Step0Props {
   onSubmit: (data: EligibilityForm) => void
   isLoading?: boolean
-  formData?: EligibilityForm
+  formData?: Partial<EligibilityForm>
   isProfileComplete?: boolean
   // The apply-now funnel shows a phone screen before this one, so eligibility is its
   // step 2 of 3. The dashboard reloan flow starts here (user is already logged in) and
@@ -21,7 +21,7 @@ interface Step0Props {
 }
 
 export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfileComplete = false, stepLabel = "Step 2 of 3" }: Step0Props) {
-  const { register, handleSubmit, formState: { errors, isValid }, watch, setValue, reset } = useForm<EligibilityForm>({
+  const { register, handleSubmit, formState: { errors, isValid }, watch, setValue, reset, trigger } = useForm<EligibilityForm>({
     mode: "onChange",
     resolver: zodResolver(eligibilitySchema),
     defaultValues: {
@@ -44,8 +44,13 @@ export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfile
         salaryReceivedIn: formData.salaryReceivedIn || "Bank Transfer",
         city: formData.city || "",
       })
+      if (formData.loanAmount || formData.city || formData.purposeOfLoan) {
+        setTimeout(() => {
+          trigger()
+        }, 0)
+      }
     }
-  }, [formData, reset])
+  }, [formData, reset, trigger])
 
   // We explicitly watch out for specific custom UI behaviors
   const salaryReceivedIn = watch("salaryReceivedIn")
