@@ -29,7 +29,11 @@ import {
     Loader2,
     ChevronDown,
     FileX2,
-    Bookmark
+    Bookmark,
+    QrCode,
+    X,
+    Copy,
+    Download
 } from "lucide-react";
 import { useSignup } from "@/hooks/useSignup";
 import { useScrollToTop } from "@/hooks/useScrollToTop";
@@ -40,6 +44,12 @@ import { FileUpload } from "@/components/ui/file-upload";
 import { toast } from "sonner";
 
 export const dynamic = "force-dynamic";
+
+// Static UPI collection QR shared by every repayment. The PNG is the rendered
+// artwork shown in the dialog, the PDF is the original the customer can save.
+const UPI_QR_IMAGE = "/qr/QR-Code.png";
+const UPI_QR_PDF = "/qr/QR-Code.pdf";
+const UPI_ID = "naveen8665@idfcbank";
 
 function ReloanFlow() {
     const {
@@ -343,6 +353,20 @@ function DashboardContent() {
     const [isProfileComplete, setIsProfileComplete] = React.useState(false);
     const [uploadFiles, setUploadFiles] = React.useState<Record<string, File | null>>({});
     const [isUploadingDocs, setIsUploadingDocs] = React.useState(false);
+    // Loan whose UPI QR is currently shown in the pay-via-QR dialog (null = closed)
+    const [qrLoan, setQrLoan] = React.useState<any | null>(null);
+
+    React.useEffect(() => {
+        if (!qrLoan) return;
+        const onKeyDown = (e: KeyboardEvent) => { if (e.key === "Escape") setQrLoan(null); };
+        window.addEventListener("keydown", onKeyDown);
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+        return () => {
+            window.removeEventListener("keydown", onKeyDown);
+            document.body.style.overflow = previousOverflow;
+        };
+    }, [qrLoan]);
 
     const sidebarItems = [
         { name: "Dashboard", icon: <LayoutDashboard size={20} /> },
@@ -905,10 +929,11 @@ function DashboardContent() {
                                 </span>
                             </div>
                             <div className="flex flex-col gap-3">
-                                <button 
-                                    onClick={() => window.open("https://api.whatsapp.com/send/?phone=919217364584&text=Hi%20I%20have%20applied%20for%20a%20loan.%20I%20have%20a%20query.%20Please%20assist&type=phone_number&app_absent=0", "_blank")}
-                                    className="bg-[#EF4444] text-white px-5 py-3 rounded-xl font-bold hover:bg-red-600 transition-all shadow-lg shadow-red-100 w-full text-center text-[14px]">
-                                    Repay via WhatsApp
+                                <button
+                                    onClick={() => setQrLoan(loan)}
+                                    className="bg-[#EF4444] text-white px-5 py-3 rounded-xl font-bold hover:bg-red-600 transition-all shadow-lg shadow-red-100 w-full flex items-center justify-center gap-2 text-[14px]">
+                                    <QrCode size={18} />
+                                    Pay via QR
                                 </button>
                                 <button className="text-gray-500 font-bold hover:text-gray-900 transition-colors text-[13px] underline underline-offset-4 decoration-gray-300 hover:decoration-gray-900">
                                     Net bank details
@@ -1115,6 +1140,96 @@ function DashboardContent() {
                                         <div className="text-center py-20 text-gray-400">Content for {activeTab} coming soon...</div>}
                 </main>
             </div>
+
+            {/* Pay via QR dialog */}
+            {qrLoan && (
+                <div
+                    className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-200"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="pay-via-qr-title"
+                    onClick={() => setQrLoan(null)}
+                >
+                    <div
+                        className="relative w-full max-w-md max-h-[90vh] overflow-y-auto bg-white rounded-3xl shadow-2xl border border-gray-100"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <button
+                            onClick={() => setQrLoan(null)}
+                            aria-label="Close"
+                            className="absolute top-4 right-4 w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 hover:text-gray-900 flex items-center justify-center transition-colors"
+                        >
+                            <X size={18} />
+                        </button>
+
+                        <div className="px-6 sm:px-8 pt-8 pb-6 text-center border-b border-gray-100">
+                            <div className="w-12 h-12 rounded-2xl bg-red-50 text-[#EF4444] flex items-center justify-center mx-auto mb-4">
+                                <QrCode size={24} />
+                            </div>
+                            <h3 id="pay-via-qr-title" className="text-[22px] font-extrabold text-gray-900 tracking-tight">Scan &amp; Pay</h3>
+                            <p className="mt-1 text-[13px] font-medium text-gray-500">
+                                Scan this QR with any UPI app to repay your loan
+                            </p>
+                            <div className="mt-5 flex items-center justify-center gap-3 text-left">
+                                <div className="px-4 py-2 rounded-xl bg-gray-50 border border-gray-100">
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Loan Reference</p>
+                                    <p className="text-[13px] font-bold text-gray-900">{qrLoan.number}</p>
+                                </div>
+                                <div className="px-4 py-2 rounded-xl bg-gray-50 border border-gray-100">
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Amount</p>
+                                    <p className="text-[13px] font-extrabold text-gray-900">{qrLoan.amount}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="px-6 sm:px-8 py-6 space-y-5">
+                            <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+                                <img
+                                    src={UPI_QR_IMAGE}
+                                    alt={`UPI payment QR code for UPI ID ${UPI_ID}`}
+                                    className="w-full h-auto rounded-xl"
+                                />
+                            </div>
+
+                            <div className="flex items-center justify-between gap-3 p-4 rounded-2xl bg-gray-50 border border-gray-100">
+                                <div className="min-w-0">
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">UPI ID</p>
+                                    <p className="text-[14px] font-bold text-gray-900 truncate">{UPI_ID}</p>
+                                </div>
+                                <button
+                                    onClick={async () => {
+                                        try {
+                                            await navigator.clipboard.writeText(UPI_ID);
+                                            toast.success("UPI ID copied");
+                                        } catch {
+                                            toast.error("Could not copy. Please note the UPI ID manually.");
+                                        }
+                                    }}
+                                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:text-[#EF4444] hover:border-red-200 transition-colors text-[12px] font-bold flex-shrink-0"
+                                >
+                                    <Copy size={14} />
+                                    Copy
+                                </button>
+                            </div>
+
+                            <a
+                                href={UPI_QR_PDF}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-gray-200 text-gray-700 font-bold text-[14px] hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                            >
+                                <Download size={16} />
+                                Download QR (PDF)
+                            </a>
+
+                            <p className="text-[11px] text-gray-400 font-medium text-center leading-relaxed">
+                                After paying, keep the UPI transaction reference safe. Repayments are
+                                updated against your loan within 24 working hours.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
