@@ -6,6 +6,7 @@ import { apiClient } from '@/lib/api';
 import { SignupFormData } from '@/lib/signup-schemas';
 import { submitLeadToKylas } from '@/lib/kylas';
 import { getClientIp } from '@/lib/getClientIP';
+import { assertCanApply, ApplicationBlockedError } from '@/lib/application-gate';
 
 interface UseSignupReturn {
   currentStep: number;
@@ -85,6 +86,11 @@ export function useSignup(): UseSignupReturn {
     // eligibility check, OTP verification, user registration and document upload all send
     // no such field, so the backend has a single unambiguous "application filed" signal.
     const createApplication = async (basicDetails: any) => {
+      // Last line of defence. Every flow that files an application funnels through here,
+      // so nothing can report submitted: true while another application is still in
+      // process, or inside the 15-day cooldown after a rejection.
+      await assertCanApply();
+
       const monthlyIncome = Number(basicDetails.monthlyIncome) || Number(basicDetails.monthlySalaryRange) || 30000;
 
       let employmentType = "OTHER";
@@ -135,6 +141,11 @@ export function useSignup(): UseSignupReturn {
             if (response.token) {
               apiClient.setToken(response.token);
             }
+            // Same-number gate: the token now identifies the account behind this phone
+            // number, so someone whose case is still in process — or who was rejected
+            // inside the cooldown — is stopped here, before refilling the whole form.
+            await assertCanApply();
+
             // Smart routing: complete users go to login, incomplete users continue signup
             if ((response as any).isProfileComplete) {
               toast.error('Your profile is already complete. Please login to apply.');
@@ -154,6 +165,11 @@ export function useSignup(): UseSignupReturn {
           }
 
         case 2:
+          // === STAGE 0a: may this user apply at all? ===
+          // Ahead of the PAN gate because it must not register a user or push a lead for
+          // someone who is not allowed to apply yet.
+          await assertCanApply();
+
           // === STAGE 0: PAN gate ===
           // A PAN belonging to another account rejects the whole application, so it is
           // checked before anything reports submitted: true. The PAN endpoint works
@@ -190,6 +206,8 @@ export function useSignup(): UseSignupReturn {
           try {
             await createApplication(formData.basicDetails);
           } catch (kycErr) {
+            // A blocked application is a hard stop, unlike the sync failures this swallows.
+            if (kycErr instanceof ApplicationBlockedError) throw kycErr;
             console.error("KYC Sync Error (Non-blocking): ", kycErr);
           }
 
@@ -248,6 +266,9 @@ export function useSignup(): UseSignupReturn {
           return true;
 
         case 4:
+          // Nothing is uploaded for an applicant who is not allowed to apply.
+          await assertCanApply();
+
           // Submit documents (salary slips and bank statements) (Used by apply-now flow)
           const documentFormDataSeparate = new FormData();
 
@@ -302,6 +323,9 @@ export function useSignup(): UseSignupReturn {
 
         
         case 7:
+          // Application gate before the PAN gate — see case 2.
+          await assertCanApply();
+
           // PAN gate first — a PAN owned by another account rejects the application, and
           // nothing may report submitted: true before that check has passed.
           if (data.panNumber) {
@@ -362,7 +386,12 @@ export function useSignup(): UseSignupReturn {
       const lowerError = errorMsg.toLowerCase();
 
       let finalErrorMsg = '';
-      if (lowerError.includes('pan') || lowerError.includes('another account')) {
+      if (err instanceof ApplicationBlockedError) {
+        // Already a user-facing sentence: either the case is in process, or it names
+        // the rejection and reapply dates.
+        finalErrorMsg = errorMsg;
+        toast.error(finalErrorMsg);
+      } else if (lowerError.includes('pan') || lowerError.includes('another account')) {
         // PAN conflict — show message but don't redirect
         finalErrorMsg = 'This PAN number is already registered with another account.';
         toast.error(finalErrorMsg);

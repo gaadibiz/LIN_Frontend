@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { isAgeEligible, MIN_ELIGIBLE_AGE, MAX_ELIGIBLE_AGE } from "@/lib/utils"
 
 const MAX_5MB = 5 * 1024 * 1024;
 const MAX_2MB = 2 * 1024 * 1024;
@@ -80,14 +81,10 @@ export const personalDetailsSchema = z.object({
   gender: z.enum(["Male", "Female"]),
   dateOfBirth: z.string()
     .min(1, "Date of birth is required")
-    .refine((date) => {
-      // Allow format DD/MM/YYYY or similar parsing
-      const parts = date.split('/');
-      const parsedDate = parts.length === 3 ? new Date(`${parts[2]}-${parts[1]}-${parts[0]}`) : new Date(date);
-      const today = new Date();
-      const age = today.getFullYear() - parsedDate.getFullYear();
-      return age >= 18 && age <= 65;
-    }, "Age must be between 18 and 65 years"),
+    // The DOB is read-only and comes from the PAN/Aadhaar KYC response, so this is
+    // the eligibility gate rather than a typo guard. Step 2 also blocks submission
+    // with a popup so the applicant sees why they can't proceed.
+    .refine(isAgeEligible, `Age must be between ${MIN_ELIGIBLE_AGE} and ${MAX_ELIGIBLE_AGE} years`),
   email: z.string().email("Please enter a valid email address"),
   aadhaarNumber: z.string().length(12, "oops invalid Aadhaar number").regex(/^\d{12}$/, "oops invalid Aadhaar number"),
   aadhaarName: z.string().min(2, "Name as per Aadhaar is required"),

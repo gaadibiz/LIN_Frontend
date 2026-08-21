@@ -70,6 +70,16 @@ const cities: { title: string; href: string; description: string }[] = [
     href: "/cities/payday-loan-in-chennai",
     description: "Avail loans in Chennai",
   },
+  {
+    title: "Chandigarh",
+    href: "/cities/payday-loan-in-chandigarh",
+    description: "Avail loans in Chandigarh",
+  },
+  {
+    title: "Ahmedabad",
+    href: "/cities/payday-loan-in-ahmedabad",
+    description: "Avail loans in Ahmedabad",
+  },
 ];
 
 function ListItem({

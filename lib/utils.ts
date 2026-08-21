@@ -36,3 +36,39 @@ export function formatAppNumber(id: number | string | null | undefined, aadhaar?
   
   return `${prefix}${year}${aaaa}${serial}`;
 }
+
+// Age eligibility for a personal loan — mirrored in the "Eligibility check" grid
+// (see eligibilityCriteria in lib/data.tsx). Keep the two in sync.
+export const MIN_ELIGIBLE_AGE = 21;
+export const MAX_ELIGIBLE_AGE = 58;
+
+// Age in completed years from a date of birth. Accepts the YYYY-MM-DD the PAN/Aadhaar
+// KYC response is normalised to, as well as the DD/MM/YYYY some providers return.
+// Returns null when the date is missing or unparseable.
+export function calculateAge(dob: string | null | undefined): number | null {
+  const raw = String(dob ?? "").trim();
+  if (!raw) return null;
+
+  let parsed: Date;
+  if (raw.includes("/")) {
+    const [d, m, y] = raw.split("/");
+    parsed = new Date(`${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
+  } else {
+    parsed = new Date(raw);
+  }
+  if (Number.isNaN(parsed.getTime())) return null;
+
+  const today = new Date();
+  let age = today.getFullYear() - parsed.getFullYear();
+  // Not had this year's birthday yet -> one year younger.
+  const monthDiff = today.getMonth() - parsed.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < parsed.getDate())) age--;
+
+  return age;
+}
+
+// True only when the DOB parses AND the age falls inside the eligible window.
+export function isAgeEligible(dob: string | null | undefined): boolean {
+  const age = calculateAge(dob);
+  return age !== null && age >= MIN_ELIGIBLE_AGE && age <= MAX_ELIGIBLE_AGE;
+}

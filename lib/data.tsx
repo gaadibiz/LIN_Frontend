@@ -398,12 +398,12 @@ export const eligibilityCriteria = {
     {
       iconImg: "/personal-insta-loan/age.png",
       itemTitle: "Age",
-      itemDesc: "21 to 60 years",
+      itemDesc: "21 to 58 years",
     },
     {
       iconImg: "/personal-insta-loan/employment.png",
       itemTitle: "Employment",
-      itemDesc: "Salaried professional having income more than ₹35,000",
+      itemDesc: "Salaried professional having income more than ₹20,000",
     },
     {
       iconImg: "/personal-insta-loan/cibil.png",

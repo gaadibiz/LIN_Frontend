@@ -55,7 +55,7 @@ function BusinessConsultantContent() {
         },
         {
             question: "What types of clients can I refer?",
-            answer: "Anyone who needs instant loans - salaried people, self-employed professionals, business owners, freelancers. Basic eligibility is CIBIL score 650+ and minimum monthly income of ₹35,000. If your client meets this, they're good to apply."
+            answer: "Anyone who needs instant loans - salaried people, self-employed professionals, business owners, freelancers. Basic eligibility is CIBIL score 650+ and minimum monthly income of ₹20,000. If your client meets this, they're good to apply."
         }
     ];
 

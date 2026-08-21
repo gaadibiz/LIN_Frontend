@@ -17,6 +17,7 @@ import { Suspense } from "react"
 import Image from "next/image"
 import { Loader2, CheckCircle2, Calendar, FileX2, Check, ClipboardList, Clock, IndianRupee, MessageCircle, Bookmark } from "lucide-react"
 import { formatAppNumber } from "@/lib/utils"
+import { REAPPLY_COOLDOWN_DAYS } from "@/lib/reapply-cooldown"
 import { toast } from "sonner"
 
 export const dynamic = "force-dynamic";
@@ -542,7 +543,7 @@ function SignupContent() {
                       <Calendar className="w-6 h-6 text-[#5b4dff]" />
                     </div>
                     <div className="text-[13px] font-medium text-gray-600 leading-relaxed">
-                      You may reapply after <span className="font-bold text-[#312c5b]">14 days</span><br /> to reassess your eligibility.
+                      You may reapply after <span className="font-bold text-[#312c5b]">{REAPPLY_COOLDOWN_DAYS} days</span><br /> to reassess your eligibility.
                     </div>
                   </div>
 

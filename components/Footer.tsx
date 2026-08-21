@@ -245,6 +245,16 @@ export default function Footer() {
                   Insta loan in Chennai
                 </Link>
               </li>
+              <li>
+                <Link href="/cities/payday-loan-in-chandigarh">
+                  Insta loan in Chandigarh
+                </Link>
+              </li>
+              <li>
+                <Link href="/cities/payday-loan-in-ahmedabad">
+                  Insta loan in Ahmedabad
+                </Link>
+              </li>
             </ul>
           </div>
 
@@ -260,18 +270,8 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/states/payday-loan-in-bihar">
-                  Insta loan in Bihar
-                </Link>
-              </li>
-              <li>
                 <Link href="/states/payday-loan-in-orissa">
                   Insta loan in Orissa
-                </Link>
-              </li>
-              <li>
-                <Link href="/states/payday-loan-in-jharkhand">
-                  Insta loan in Jharkhand
                 </Link>
               </li>
               <li>

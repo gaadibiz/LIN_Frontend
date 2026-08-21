@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useAffiliate } from "@/hooks/useAffiliate";
 import { formatAppNumber } from "@/lib/utils";
 import { getSubmittedApplications } from "@/lib/application-status";
+import { getApplicationBlock, formatApplicationStatus, IN_PROCESS_LABEL, type ApplicationBlock } from "@/lib/application-gate";
+import { ApplicationBlockedNotice } from "@/components/signup/ApplicationBlockedNotice";
 
 import {
     LayoutDashboard,
@@ -56,9 +58,13 @@ function ReloanFlow() {
     const [eligibilityStatus, setEligibilityStatus] = React.useState<'pending' | 'eligible' | 'rejected'>('pending')
     const [isCheckingEligibility, setIsCheckingEligibility] = React.useState(false)
     const [isSubmittingDoc, setIsSubmittingDoc] = React.useState(false)
+    // Set from the profile: non-null while an application is in process, or a rejection
+    // is less than 15 days old.
+    const [applicationBlock, setApplicationBlock] = React.useState<ApplicationBlock | null>(null)
+    const [blockedAadhaar, setBlockedAadhaar] = React.useState<string>("")
 
     // Scroll to top when the step changes or when the success/rejection screen appears
-    useScrollToTop([internalStep, applicationSubmitted, eligibilityStatus])
+    useScrollToTop([internalStep, applicationSubmitted, eligibilityStatus, applicationBlock])
 
     // Pre-fill data if authenticated
     React.useEffect(() => {
@@ -68,6 +74,12 @@ function ReloanFlow() {
                 const res = await apiClient.getCompleteProfile();
                 if (res && res.profile) {
                     const p = res.profile as any;
+
+                    // In process, or rejected less than 15 days ago -> the reloan form is
+                    // replaced by a notice explaining which
+                    setApplicationBlock(getApplicationBlock(p.loanApplications));
+                    setBlockedAadhaar(p.aadhaarVerification?.aadhaarNumber || "");
+
                     if (p.panVerification || p.aadhaarVerification || p.name) {
                         updateFormData('personalDetails', {
                             panNumber: p.panVerification?.panNumber || "",
@@ -261,7 +273,9 @@ function ReloanFlow() {
             )}
 
             <div className="space-y-6">
-                {eligibilityStatus === 'rejected' ? (
+                {applicationBlock ? (
+                    <ApplicationBlockedNotice block={applicationBlock} aadhaarNumber={blockedAadhaar} />
+                ) : eligibilityStatus === 'rejected' ? (
                     <div className="w-full py-8 flex flex-col items-center">
                         <div className="w-24 h-24 bg-[#f5f3ff] rounded-full flex items-center justify-center mb-6 border-4 border-white shadow-sm">
                             <FileX2 className="w-12 h-12 text-[#c2bdf1]" />
@@ -846,8 +860,8 @@ function DashboardContent() {
                                 </div>
                                 <div className="flex justify-between border-b pb-2">
                                     <span className="font-bold">Status:</span>
-                                    <span className={`font-bold ${result.status === 'PENDING' ? 'text-amber-500' : 'text-emerald-500'}`}>
-                                        {result.status}
+                                    <span className={`font-bold ${formatApplicationStatus(result.status) === IN_PROCESS_LABEL ? 'text-amber-500' : 'text-emerald-500'}`}>
+                                        {formatApplicationStatus(result.status)}
                                     </span>
                                 </div>
                                 <div className="flex justify-between">
@@ -883,11 +897,11 @@ function DashboardContent() {
                             <div className="space-y-1">
                                 <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider">Status</p>
                                 <span className={`inline-block text-[11px] px-3 py-1 rounded-full font-bold uppercase tracking-wider
-                                    ${loan.status === 'PENDING' ? 'bg-amber-100 text-amber-700' :
+                                    ${formatApplicationStatus(loan.status) === IN_PROCESS_LABEL ? 'bg-amber-100 text-amber-700' :
                                         loan.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' :
                                             loan.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
                                                 'bg-gray-100 text-gray-700'}`}>
-                                    {loan.status}
+                                    {formatApplicationStatus(loan.status)}
                                 </span>
                             </div>
                             <div className="flex flex-col gap-3">
@@ -938,11 +952,11 @@ function DashboardContent() {
                                         <td className="px-8 py-6 text-[15px] font-bold text-gray-900 flex flex-col items-start gap-1">
                                             <span>{loan.number}</span>
                                             <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider
-                                                ${loan.status === 'PENDING' ? 'bg-amber-100 text-amber-700' :
+                                                ${formatApplicationStatus(loan.status) === IN_PROCESS_LABEL ? 'bg-amber-100 text-amber-700' :
                                                     loan.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' :
                                                         loan.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
                                                             'bg-gray-100 text-gray-700'}`}>
-                                                {loan.status}
+                                                {formatApplicationStatus(loan.status)}
                                             </span>
                                         </td>
                                         <td className="px-8 py-6">

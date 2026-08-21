@@ -33,6 +33,9 @@ const STEPS: Step[] = [
 import { Suspense } from "react"
 import { Check, ClipboardList, Clock, IndianRupee, MessageCircle, Loader2, Bookmark, FileX2, Calendar } from "lucide-react"
 import { formatAppNumber } from "@/lib/utils"
+import { REAPPLY_COOLDOWN_DAYS } from "@/lib/reapply-cooldown"
+import { getApplicationBlock, type ApplicationBlock } from "@/lib/application-gate"
+import { ApplicationBlockedNotice } from "@/components/signup/ApplicationBlockedNotice"
 
 function ApplyNowContent() {
     const { getLinkWithRef } = useAffiliate();
@@ -57,10 +60,14 @@ function ApplyNowContent() {
     const [isCheckingEligibility, setIsCheckingEligibility] = useState(false)
     const [isSubmittingDoc, setIsSubmittingDoc] = useState(false)
     const [isProfileComplete, setIsProfileComplete] = useState<boolean>(false)
+    // Set from the profile: non-null while an application is in process, or a rejection
+    // is less than 15 days old.
+    const [applicationBlock, setApplicationBlock] = useState<ApplicationBlock | null>(null)
+    const [blockedAadhaar, setBlockedAadhaar] = useState<string>("")
 
     // Scroll to top on every screen change in the apply flow: step changes,
     // personal-details -> documents swap, success screen, and rejection screen
-    useScrollToTop([internalStep, applicationSubmitted, eligibilityStatus, isProfileComplete])
+    useScrollToTop([internalStep, applicationSubmitted, eligibilityStatus, isProfileComplete, applicationBlock])
 
     const progress = (internalStep / STEPS.length) * 100
 
@@ -218,6 +225,11 @@ function ApplyNowContent() {
             apiClient.getCompleteProfile().then(res => {
                 if (res && res.profile) {
                     const p = res.profile as any;
+
+                    // In process, or rejected less than 15 days ago -> the form is
+                    // replaced by a notice explaining which
+                    setApplicationBlock(getApplicationBlock(p.loanApplications));
+                    setBlockedAadhaar(p.aadhaarVerification?.aadhaarNumber || "");
 
                     if (p.panVerification || p.aadhaarVerification || p.name) {
                         updateFormData('personalDetails', {
@@ -551,7 +563,9 @@ function ApplyNowContent() {
 
                     {/* Form Content */}
                     <div className="space-y-6">
-                        {eligibilityStatus === 'rejected' ? (
+                        {applicationBlock ? (
+                            <ApplicationBlockedNotice block={applicationBlock} aadhaarNumber={blockedAadhaar} />
+                        ) : eligibilityStatus === 'rejected' ? (
                             <div className="w-full py-8 flex flex-col items-center">
                                 <div className="w-48 h-48 bg-[#f5f3ff] rounded-full flex items-center justify-center mb-8 relative border-4 border-white shadow-sm">
                                     <FileX2 className="w-20 h-20 text-[#c2bdf1]" />
@@ -571,7 +585,7 @@ function ApplyNowContent() {
                                         <Calendar className="w-6 h-6 text-[#5b4dff]" />
                                     </div>
                                     <div className="text-[13px] font-medium text-gray-600 leading-relaxed">
-                                        You may reapply after <span className="font-bold text-[#312c5b]">14 days</span><br /> to reassess your eligibility.
+                                        You may reapply after <span className="font-bold text-[#312c5b]">{REAPPLY_COOLDOWN_DAYS} days</span><br /> to reassess your eligibility.
                                     </div>
                                 </div>
                                 <a href="https://api.whatsapp.com/send/?phone=919217364584&text=Hi%20I%20have%20applied%20for%20a%20loan.%20I%20have%20a%20query.%20Please%20assist&type=phone_number&app_absent=0" target="_blank" rel="noopener noreferrer" className="font-bold text-[#5b4dff] hover:text-[#4236cc] hover:underline text-sm transition-colors mt-2 pb-6">

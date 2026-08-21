@@ -7,9 +7,11 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { personalDetailsSchema, type PersonalDetailsForm } from "@/lib/signup-schemas"
-import { Lock, User, Mail, FileText, UploadCloud, FileBadge2 } from "lucide-react"
+import { Lock, User, Mail, FileText, UploadCloud, FileBadge2, AlertTriangle } from "lucide-react"
 import { FileUpload } from "../ui/file-upload"
 import { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator } from "@/components/ui/input-otp"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import { calculateAge, isAgeEligible, MIN_ELIGIBLE_AGE, MAX_ELIGIBLE_AGE } from "@/lib/utils"
 
 interface Step2Props {
   onSubmit: (data: PersonalDetailsForm) => void;
@@ -27,7 +29,7 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
   const [aadhaarError, setAadhaarError] = useState<string | null>(null);
   
   const [showNameMismatch, setShowNameMismatch] = useState(false);
-  const [nameMismatchConfirmed, setNameMismatchConfirmed] = useState(false);
+  const [showAgeAlert, setShowAgeAlert] = useState(false);
 
   const { register, handleSubmit, setValue, watch, control, formState: { errors, isValid }, trigger } = useForm<PersonalDetailsForm>({
     resolver: zodResolver(personalDetailsSchema) as any,
@@ -37,11 +39,30 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
 
   const gender = watch("gender");
 
+  // The DOB is never typed — it arrives from the PAN/Aadhaar KYC response — so the
+  // age it implies is the eligibility signal. Outside 21-58 the application stops here.
+  const dateOfBirth = watch("dateOfBirth");
+  const applicantAge = calculateAge(dateOfBirth);
+  const isAgeBlocked = !!String(dateOfBirth || "").trim() && !isAgeEligible(dateOfBirth);
+
+  // Pop the alert as soon as an ineligible DOB lands (fresh PAN verification, or a
+  // returning applicant whose saved profile prefills the field).
+  React.useEffect(() => {
+    if (isAgeBlocked) setShowAgeAlert(true);
+  }, [isAgeBlocked, dateOfBirth]);
+
   const handleFileChange = (field: keyof PersonalDetailsForm) => (file: File | null) => {
     if (file) setValue(field, file as any, { shouldValidate: true });
   };
 
   const onValidSubmit = async (data: PersonalDetailsForm) => {
+    // Age gate first — an ineligible applicant must not reach the backend at all.
+    if (!isAgeEligible(data.dateOfBirth)) {
+      setShowAgeAlert(true);
+      toast.error(`Age must be between ${MIN_ELIGIBLE_AGE} and ${MAX_ELIGIBLE_AGE} years. The application cannot be submitted.`);
+      return;
+    }
+
     // Fuzzy matching logic
     const panName = `${data.firstName || ''} ${data.middleName || ''} ${data.lastName || ''}`.trim().toLowerCase();
     const aadhaarName = (data.aadhaarName || '').trim().toLowerCase();
@@ -50,13 +71,15 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
       const panWords = panName.split(/\s+/);
       const aadhaarWords = aadhaarName.split(/\s+/);
       const hasOverlap = panWords.some(word => aadhaarWords.includes(word));
-      
-      if (!hasOverlap && !nameMismatchConfirmed) {
+
+      if (!hasOverlap) {
         setShowNameMismatch(true);
-        toast.error("Name on PAN and Aadhaar do not match. Please confirm it's you.");
+        toast.error("Name on PAN and Aadhaar do not match. The application cannot be submitted.");
         return;
       }
     }
+
+    setShowNameMismatch(false);
 
     setIsLoading(true);
     setFormData(data);
@@ -539,22 +562,23 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
 
 
 
+      {isAgeBlocked && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg mb-4">
+          <p className="text-sm text-red-800 font-medium">
+            As per your PAN/Aadhaar records you are {applicantAge} years old. Loans are
+            available only to applicants aged {MIN_ELIGIBLE_AGE} to {MAX_ELIGIBLE_AGE} years,
+            so this application cannot be submitted.
+          </p>
+        </div>
+      )}
+
       {showNameMismatch && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-lg mb-4">
-          <p className="text-sm text-red-800 font-medium mb-2">
+          <p className="text-sm text-red-800 font-medium">
             The name on your Aadhaar card does not match the name on your PAN card.
+            Please verify your PAN and Aadhaar details — this application cannot be
+            submitted until the names match.
           </p>
-          <label className="flex items-start gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={nameMismatchConfirmed}
-              onChange={(e) => setNameMismatchConfirmed(e.target.checked)}
-              className="mt-1 h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
-            />
-            <span className="text-sm text-red-700">
-              I confirm that both the PAN and Aadhaar belong to me and I accept responsibility for this mismatch.
-            </span>
-          </label>
         </div>
       )}
 
@@ -562,7 +586,7 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
         <Button
           type="submit"
           className="w-full bg-[#c81e1e] hover:bg-red-700 text-white h-14 rounded-xl text-lg font-bold shadow-md transition-all"
-          disabled={isLoading || !isValid || aadhaarStatus === 'checking' || aadhaarStatus === 'invalid' || aadhaarStatus === 'idle'}
+          disabled={isLoading || !isValid || isAgeBlocked || aadhaarStatus === 'checking' || aadhaarStatus === 'invalid' || aadhaarStatus === 'idle'}
         >
           {isLoading ? "Submitting..." : "Review & Submit Application"}
         </Button>
@@ -572,6 +596,36 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
           </span>
         </div>
       </div>
+
+      {/* Age eligibility alert — age is derived from the DOB on the verified PAN/Aadhaar */}
+      <Dialog open={showAgeAlert} onOpenChange={setShowAgeAlert}>
+        <DialogContent className="sm:max-w-[440px] rounded-2xl">
+          <DialogHeader>
+            <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
+              <AlertTriangle className="w-7 h-7 text-red-600" />
+            </div>
+            <DialogTitle className="text-center text-xl font-bold text-[#1c2b4f]">
+              Not eligible for this loan
+            </DialogTitle>
+            <DialogDescription className="text-center text-gray-600 pt-2">
+              {applicantAge !== null
+                ? `As per the date of birth on your PAN/Aadhaar you are ${applicantAge} years old.`
+                : "We could not read a valid date of birth from your PAN/Aadhaar."}{" "}
+              Loans are available only to applicants aged {MIN_ELIGIBLE_AGE} to {MAX_ELIGIBLE_AGE} years,
+              so we are unable to proceed with this application.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="sm:justify-center pt-2">
+            <Button
+              type="button"
+              onClick={() => setShowAgeAlert(false)}
+              className="bg-[#c81e1e] hover:bg-red-700 text-white h-11 px-8 rounded-xl font-bold"
+            >
+              I understand
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </form>
   )
 }
