@@ -355,6 +355,7 @@ function DashboardContent() {
     const [isUploadingDocs, setIsUploadingDocs] = React.useState(false);
     // Loan whose UPI QR is currently shown in the pay-via-QR dialog (null = closed)
     const [qrLoan, setQrLoan] = React.useState<any | null>(null);
+    const [bankDetailsLoanId, setBankDetailsLoanId] = React.useState<string | null>(null);
 
     React.useEffect(() => {
         if (!qrLoan) return;
@@ -935,10 +936,48 @@ function DashboardContent() {
                                     <QrCode size={18} />
                                     Pay via QR
                                 </button>
-                                <button className="text-gray-500 font-bold hover:text-gray-900 transition-colors text-[13px] underline underline-offset-4 decoration-gray-300 hover:decoration-gray-900">
+                                <button
+                                    type="button"
+                                    aria-expanded={bankDetailsLoanId === loan.id}
+                                    onClick={() => setBankDetailsLoanId(currentId => currentId === loan.id ? null : loan.id)}
+                                    className="text-gray-500 font-bold hover:text-gray-900 transition-colors text-[13px] underline underline-offset-4 decoration-gray-300 hover:decoration-gray-900"
+                                >
                                     Net bank details
                                 </button>
                             </div>
+                            {bankDetailsLoanId === loan.id && (
+                                <div className="md:col-span-4 rounded-2xl border border-gray-100 bg-gray-50 p-5 space-y-3">
+                                    <div className="flex items-center justify-between gap-4">
+                                        <p className="text-sm font-extrabold text-gray-900">Bank details</p>
+                                        <button
+                                            type="button"
+                                            onClick={() => setBankDetailsLoanId(null)}
+                                            className="text-xs font-bold text-gray-500 hover:text-gray-900"
+                                        >
+                                            Hide
+                                        </button>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 text-sm">
+                                        <div>
+                                            <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Account holder</p>
+                                            <p className="font-bold text-gray-900">NAVEEN FINANCE PVT. LTD.</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Bank and branch</p>
+                                            <p className="font-bold text-gray-900">IDFC BANK, Dunlop Branch</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Account number</p>
+                                            <p className="font-bold text-gray-900">10292458665</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-bold uppercase tracking-wider text-gray-400">IFSC code</p>
+                                            <p className="font-bold text-gray-900">IDFB0060145</p>
+                                        </div>
+                                    </div>
+                                    <p className="text-xs font-medium text-gray-500">QR code attached above for quick payment.</p>
+                                </div>
+                            )}
                         </div>
                     ))}
                 </div>
