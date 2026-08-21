@@ -51,10 +51,30 @@ export default function Footer() {
               </Button>
             </Link>
           </div>
-          <address className="not-italic text-sm text-gray-600">
-            OFFICE NO.-202, PLOT 9, Veer Savarkar Block, Guru Nanak Nagar,
-            Shakurpur, Delhi, 110092
-          </address>
+          <div className="space-y-4 text-sm text-gray-600">
+            <div>
+              <h4 className="font-semibold text-primary mb-1">
+                Registered address
+              </h4>
+              <address className="not-italic">
+                505, 5th Floor, Mangal Tower,
+                <br />
+                Old H.B. Road, Ranchi – 834001,
+                <br />
+                Jharkhand (India)
+              </address>
+            </div>
+            <div>
+              <h4 className="font-semibold text-primary mb-1">Corp. address</h4>
+              <address className="not-italic">
+                10/1, B.T. Road, South Belgharia,
+                <br />
+                Barrackpore, North 24 Parganas,
+                <br />
+                West Bengal, India – 700056
+              </address>
+            </div>
+          </div>
           <div className="flex flex-col space-y-3 text-primary">
             <div className="flex space-x-3 text-primary">
               <Link href="https://www.instagram.com/loaninneed/">
@@ -191,9 +211,6 @@ export default function Footer() {
             <ul className="space-y-2 text-sm text-gray-700">
               <li>
                 <Link href="/about-us">About Us</Link>
-              </li>
-              <li>
-                <Link href="/careers">Careers</Link>
               </li>
               <li>
                 <Link href="/blog">Blog</Link>

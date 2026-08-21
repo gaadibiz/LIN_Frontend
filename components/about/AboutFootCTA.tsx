@@ -22,7 +22,7 @@ const AboutFootCTA = () => {
             customer support hero, or financial expert, your role here makes a
             real difference.
           </p>
-          <Link href="/careers">
+          <Link href="/contact-us">
             <Button
               size="lg"
               className="bg-white hover:bg-white/90 text-primary font-semibold"

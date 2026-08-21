@@ -271,9 +271,6 @@ export default function Navbar() {
                       <li>
                         <Link href={getLinkWithRef("/about-us")}>About us</Link>
                       </li>
-                      <li>
-                        <Link href={getLinkWithRef("/careers")}>Careers</Link>
-                      </li>
                     </ul>
                   </NavigationMenuContent>
                 </NavigationMenuItem>
@@ -452,9 +449,6 @@ export default function Navbar() {
                           </MobileLink>
                           <MobileLink href="/about-us" className="text-sm text-gray-700 py-1.5 hover:text-primary transition-colors">
                             About Us
-                          </MobileLink>
-                          <MobileLink href="/careers" className="text-sm text-gray-700 py-1.5 hover:text-primary transition-colors">
-                            Careers
                           </MobileLink>
                         </div>
                       </AccordionContent>

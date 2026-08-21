@@ -1,6 +1,7 @@
 import { sanityClient } from "@/sanity/client";
 import { careerBySlugQuery, activeCareersQuery } from "@/sanity/queries";
 import { PortableText } from "next-sanity";
+import { notFound } from "next/navigation";
 import { MapPin, Briefcase, Calendar } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,7 +22,14 @@ interface Career {
 
 export const revalidate = 60;
 
+// Careers section is hidden for now — see app/(cms)/careers/page.tsx
+const CAREERS_ENABLED = false;
+
 export async function generateStaticParams() {
+  if (!CAREERS_ENABLED) {
+    return [];
+  }
+
   try {
     const jobs = await sanityClient.fetch<{ slug: string }[]>(
       activeCareersQuery
@@ -38,6 +46,10 @@ export default async function CareerPage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
+  if (!CAREERS_ENABLED) {
+    notFound();
+  }
+
   const { slug } = await params;
   const job = await sanityClient.fetch<Career>(careerBySlugQuery, {
     slug,

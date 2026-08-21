@@ -3,6 +3,7 @@ import { activeCareersQuery } from "@/sanity/queries";
 import { MapPin, Briefcase, ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,16 @@ interface CareerSummary {
 
 export const revalidate = 60;
 
+// Careers page is hidden for now — no open positions. Remove the notFound()
+// below (and restore the links in Navbar.tsx / Footer.tsx / AboutFootCTA.tsx)
+// to bring it back.
+const CAREERS_ENABLED = false;
+
 export default async function CareersPage() {
+  if (!CAREERS_ENABLED) {
+    notFound();
+  }
+
   let jobs: CareerSummary[] = [];
   try {
     jobs = await sanityClient.fetch(activeCareersQuery);
