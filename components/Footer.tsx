@@ -352,7 +352,10 @@ export default function Footer() {
 
       {/* Bottom Bar */}
       <div className="mt-10 border-t border-gray-300 pt-6 flex flex-col items-center text-center gap-4 md:flex-row md:justify-between md:text-left text-sm text-gray-600">
-        <p>© 2025 Loan in need. All rights reserved.</p>
+        <p>
+          © 2026 Loan in need. All rights reserved | A Unit of Naveen Finance
+          Pvt Ltd ( RBI - Registered NBFC )
+        </p>
         <div className="flex flex-wrap justify-center md:justify-end gap-x-4 gap-y-2">
           <Link href="/privacy-policy">Privacy policy</Link>
           <Link href="/terms-conditions">Terms & conditions</Link>
