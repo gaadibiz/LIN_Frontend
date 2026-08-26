@@ -17,7 +17,6 @@ import {
   Zap,
   Lock,
   FileCheck2,
-  PhoneCall,
   Sparkles,
 } from "lucide-react";
 
@@ -193,94 +192,25 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* Column 2: Instant Loans by Need (lg:col-span-2) */}
+          {/* Column 2: Useful links (lg:col-span-2) */}
           <div className="lg:col-span-2 space-y-3">
-            <h4 className="font-bold text-[#1c2b4f] text-sm tracking-wide uppercase">Instant Loans</h4>
+            <h4 className="font-bold text-[#1c2b4f] text-sm tracking-wide uppercase">Useful links</h4>
             <ul className="space-y-2.5 text-sm text-gray-600">
               <li>
                 <Link href="/personal-loan/insta-loan" className="hover:text-primary transition-colors">
-                  Insta Loans
+                  Insta loans
                 </Link>
               </li>
               <li>
-                <Link href="/medical-emergency-loan" className="hover:text-primary transition-colors">
-                  Medical Emergency Loan
+                <Link href="/track-loan" className="hover:text-primary transition-colors">
+                  Track loan
                 </Link>
               </li>
               <li>
-                <Link href="/utility-bill-loan" className="hover:text-primary transition-colors">
-                  Utility Bill Loan
+                <Link href="/repay-loan" className="hover:text-primary transition-colors">
+                  Repay loan
                 </Link>
               </li>
-              <li>
-                <Link href="/house-rent-loan" className="hover:text-primary transition-colors">
-                  House Rent Loan
-                </Link>
-              </li>
-              <li>
-                <Link href="/daily-expense-loan" className="hover:text-primary transition-colors">
-                  Daily Expense Loan
-                </Link>
-              </li>
-              <li>
-                <Link href="/education-purpose-loan" className="hover:text-primary transition-colors">
-                  Education Purpose Loan
-                </Link>
-              </li>
-              <li>
-                <Link href="/debt-consolidation-loan" className="hover:text-primary transition-colors">
-                  Debt Consolidation Loan
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Column 3: Calculators & Salary Loans (lg:col-span-2) */}
-          <div className="lg:col-span-2 space-y-3">
-            <h4 className="font-bold text-[#1c2b4f] text-sm tracking-wide uppercase">Tools & Salary</h4>
-            <ul className="space-y-2.5 text-sm text-gray-600">
-              <li>
-                <Link href="/loan-calculators/personal-emi-calculator" className="hover:text-primary transition-colors">
-                  Personal EMI Calculator
-                </Link>
-              </li>
-              <li>
-                <Link href="/loan-calculators/eligibility-loan-calculator" className="hover:text-primary transition-colors">
-                  Eligibility Calculator
-                </Link>
-              </li>
-              <li>
-                <Link href="/loan-calculators/loan-comparison-calculator" className="hover:text-primary transition-colors">
-                  Loan Comparison Tool
-                </Link>
-              </li>
-              <li>
-                <Link href="/personal-loan/40000-salary-loan" className="hover:text-primary transition-colors">
-                  ₹40,000 Salary Loan
-                </Link>
-              </li>
-              <li>
-                <Link href="/personal-loan/50000-salary-loan" className="hover:text-primary transition-colors">
-                  ₹50,000 Salary Loan
-                </Link>
-              </li>
-              <li>
-                <Link href="/personal-loan/80000-salary-loan" className="hover:text-primary transition-colors">
-                  ₹80,000 Salary Loan
-                </Link>
-              </li>
-              <li>
-                <Link href="/personal-loan/100000-salary-loan" className="hover:text-primary transition-colors">
-                  ₹1,00,000 Salary Loan
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Column 4: Partner Programs & Services (lg:col-span-2) */}
-          <div className="lg:col-span-2 space-y-3">
-            <h4 className="font-bold text-[#1c2b4f] text-sm tracking-wide uppercase">Partner & Portal</h4>
-            <ul className="space-y-2.5 text-sm text-gray-600">
               <li>
                 <Link href="/affiliate-program" className="hover:text-primary transition-colors">
                   Affiliate Program
@@ -288,40 +218,79 @@ export default function Footer() {
               </li>
               <li>
                 <Link href="/direct-sales-agent" className="hover:text-primary transition-colors">
-                  Direct Sales Agent (DSA)
+                  Direct Sales Agent
                 </Link>
               </li>
               <li>
                 <Link href="/business-consultant" className="hover:text-primary transition-colors">
-                  Business Consultant (BC)
-                </Link>
-              </li>
-              <li>
-                <Link href="/track-loan" className="hover:text-primary transition-colors">
-                  Track Loan Application
-                </Link>
-              </li>
-              <li>
-                <Link href="/partners/login" className="hover:text-primary transition-colors">
-                  Partner Login
-                </Link>
-              </li>
-              <li>
-                <Link href="/register-agent" className="hover:text-primary transition-colors">
-                  Register as Agent
-                </Link>
-              </li>
-              <li>
-                <Link href="/login-agent" className="hover:text-primary transition-colors">
-                  Agent Portal Login
+                  Business Consultant
                 </Link>
               </li>
             </ul>
           </div>
 
-          {/* Column 5: Company & Support (lg:col-span-2) */}
+          {/* Column 3: Tools (lg:col-span-2) */}
           <div className="lg:col-span-2 space-y-3">
-            <h4 className="font-bold text-[#1c2b4f] text-sm tracking-wide uppercase">Company & Help</h4>
+            <h4 className="font-bold text-[#1c2b4f] text-sm tracking-wide uppercase">Tools</h4>
+            <ul className="space-y-2.5 text-sm text-gray-600">
+              <li>
+                <Link href="/loan-calculators/personal-emi-calculator" className="hover:text-primary transition-colors">
+                  Personal loan EMI calculator
+                </Link>
+              </li>
+              <li>
+                <Link href="/loan-calculators/eligibility-loan-calculator" className="hover:text-primary transition-colors">
+                  Eligibility Loan calculator
+                </Link>
+              </li>
+              <li>
+                <Link href="/loan-calculators/loan-comparison-calculator" className="hover:text-primary transition-colors">
+                  Loan comparison calculator
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* Column 4: Insta loan by needs (lg:col-span-2) */}
+          <div className="lg:col-span-2 space-y-3">
+            <h4 className="font-bold text-[#1c2b4f] text-sm tracking-wide uppercase">Insta loan by needs</h4>
+            <ul className="space-y-2.5 text-sm text-gray-600">
+              <li>
+                <Link href="/medical-emergency-loan" className="hover:text-primary transition-colors">
+                  Medical emergency loan
+                </Link>
+              </li>
+              <li>
+                <Link href="/utility-bill-loan" className="hover:text-primary transition-colors">
+                  Utility bill loan
+                </Link>
+              </li>
+              <li>
+                <Link href="/house-rent-loan" className="hover:text-primary transition-colors">
+                  House rent loan
+                </Link>
+              </li>
+              <li>
+                <Link href="/daily-expense-loan" className="hover:text-primary transition-colors">
+                  Daily expense loan
+                </Link>
+              </li>
+              <li>
+                <Link href="/education-purpose-loan" className="hover:text-primary transition-colors">
+                  Education purpose loan
+                </Link>
+              </li>
+              <li>
+                <Link href="/debt-consolidation-loan" className="hover:text-primary transition-colors">
+                  Debt consolidation loan
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* Column 5: Company (lg:col-span-2) */}
+          <div className="lg:col-span-2 space-y-3">
+            <h4 className="font-bold text-[#1c2b4f] text-sm tracking-wide uppercase">Company</h4>
             <ul className="space-y-2.5 text-sm text-gray-600">
               <li>
                 <Link href="/about-us" className="hover:text-primary transition-colors">
@@ -330,17 +299,12 @@ export default function Footer() {
               </li>
               <li>
                 <Link href="/blog" className="hover:text-primary transition-colors">
-                  Blog & Articles
-                </Link>
-              </li>
-              <li>
-                <Link href="/careers" className="hover:text-primary transition-colors">
-                  Careers
+                  Blog
                 </Link>
               </li>
               <li>
                 <Link href="/contact-us" className="hover:text-primary transition-colors">
-                  Contact Us
+                  Contact us
                 </Link>
               </li>
             </ul>
