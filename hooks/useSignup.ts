@@ -148,6 +148,7 @@ export function useSignup(): UseSignupReturn {
 
             // Smart routing: complete users go to login, incomplete users continue signup
             if ((response as any).isProfileComplete) {
+              apiClient.clearToken();
               toast.error('Your profile is already complete. Please login to apply.');
               setTimeout(() => {
                 router.push('/login');
@@ -387,10 +388,13 @@ export function useSignup(): UseSignupReturn {
 
       let finalErrorMsg = '';
       if (err instanceof ApplicationBlockedError) {
-        // Already a user-facing sentence: either the case is in process, or it names
-        // the rejection and reapply dates.
+        // Clear token so on refresh they aren't considered logged in or pushed to step 2
+        apiClient.clearToken();
         finalErrorMsg = errorMsg;
         toast.error(finalErrorMsg);
+        setTimeout(() => {
+          router.push('/login');
+        }, 1500);
       } else if (lowerError.includes('pan') || lowerError.includes('another account')) {
         // PAN conflict — show message but don't redirect
         finalErrorMsg = 'This PAN number is already registered with another account.';

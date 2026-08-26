@@ -6,7 +6,7 @@ import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { eligibilitySchema, type EligibilityForm } from "@/lib/signup-schemas"
+import { eligibilitySchema, getRequiredMonthlySalary, MIN_MONTHLY_SALARY, type EligibilityForm } from "@/lib/signup-schemas"
 import { FileText, Wallet, Target, Briefcase, Landmark, MapPin, Banknote, CreditCard, Lock } from "lucide-react"
 
 interface Step0Props {
@@ -62,12 +62,15 @@ export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfile
   const watchedSalary = watch("monthlySalaryRange")
   const salaryNum = Number(String(watchedSalary ?? "").replace(/\D/g, ""))
   const requiredSalary =
-    typeof watchedLoanAmount === "number" ? Math.round(watchedLoanAmount * 1.4) : 0
+    typeof watchedLoanAmount === "number" ? getRequiredMonthlySalary(watchedLoanAmount) : 0
   const isSalaryTooLow =
     typeof watchedLoanAmount === "number" &&
     String(watchedSalary ?? "").trim() !== "" &&
     !Number.isNaN(salaryNum) &&
-    salaryNum <= requiredSalary
+    salaryNum < requiredSalary
+  // Below the absolute floor we say so plainly instead of quoting a
+  // loan-amount-specific figure the user would have to work out for themselves.
+  const isBelowMinSalary = isSalaryTooLow && salaryNum < MIN_MONTHLY_SALARY
 
   // Text inputs with digit-only filtering: type="number" lets mouse-wheel
   // scrolling change the value accidentally, so we use text + numeric keypad
@@ -214,6 +217,10 @@ export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfile
             className="w-full h-12 px-4 shadow-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-red-600 text-gray-700"
           />
 
+          <div className="text-[11px] text-gray-500 mt-2 px-1 font-medium">
+            Minimum: ₹{MIN_MONTHLY_SALARY.toLocaleString("en-IN")}
+          </div>
+
           {errors.monthlySalaryRange && !isSalaryTooLow && (
             <p className="text-red-500 text-sm mt-1">
               {errors.monthlySalaryRange.message}
@@ -225,14 +232,28 @@ export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfile
             style={{ maxHeight: isSalaryTooLow ? "220px" : "0px" }}
           >
             <div className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5">
-              <p className="text-red-600 text-sm font-medium">
-                Your monthly income is too low for this loan amount.
-              </p>
-              <p className="text-red-500 text-xs mt-1 leading-relaxed">
-                To apply for a loan of ₹{(watchedLoanAmount ?? 0).toLocaleString("en-IN")}, your monthly salary
-                must be more than ₹{requiredSalary.toLocaleString("en-IN")}.
-                Please increase your monthly salary or reduce the loan amount.
-              </p>
+              {isBelowMinSalary ? (
+                <>
+                  <p className="text-red-600 text-sm font-medium">
+                    Minimum monthly salary should be ₹{MIN_MONTHLY_SALARY.toLocaleString("en-IN")}.
+                  </p>
+                  <p className="text-red-500 text-xs mt-1 leading-relaxed">
+                    We can only offer a loan if your monthly salary is at least
+                    ₹{MIN_MONTHLY_SALARY.toLocaleString("en-IN")}, even for the minimum loan amount of ₹5,000.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-red-600 text-sm font-medium">
+                    Your monthly income is too low for this loan amount.
+                  </p>
+                  <p className="text-red-500 text-xs mt-1 leading-relaxed">
+                    To apply for a loan of ₹{(watchedLoanAmount ?? 0).toLocaleString("en-IN")}, your monthly salary
+                    must be at least ₹{requiredSalary.toLocaleString("en-IN")}.
+                    Please increase your monthly salary or reduce the loan amount.
+                  </p>
+                </>
+              )}
             </div>
           </div>
         </div>

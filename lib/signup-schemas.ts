@@ -4,6 +4,20 @@ import { isAgeEligible, MIN_ELIGIBLE_AGE, MAX_ELIGIBLE_AGE } from "@/lib/utils"
 const MAX_5MB = 5 * 1024 * 1024;
 const MAX_2MB = 2 * 1024 * 1024;
 
+// Every applicant must earn at least this much per month, no matter how small
+// the requested loan is (a ₹5,000 loan still needs a ₹20,000 salary).
+export const MIN_MONTHLY_SALARY = 20000;
+
+// Monthly salary must be at least the required amount:
+// - For loan amounts up to ₹20,000 (e.g. ₹5,000, ₹10,000, ₹20,000), minimum monthly salary is ₹20,000.
+// - For loan amounts above ₹20,000, monthly salary must be at least 140% of the loan amount.
+export const getRequiredMonthlySalary = (loanAmount: number) => {
+  if (loanAmount <= 20000) {
+    return MIN_MONTHLY_SALARY;
+  }
+  return Math.max(MIN_MONTHLY_SALARY, Math.round(loanAmount * 1.4));
+};
+
 // Step 0: Eligibility Check
 export const eligibilitySchema = z.object({
   loanAmount: z.number().min(5000, "Minimum loan amount is ₹5,000").max(150000, "Maximum loan amount is ₹1,50,000"),
@@ -21,20 +35,21 @@ export const eligibilitySchema = z.object({
     });
   }
 
-  // Monthly salary must be MORE than the requested loan amount by 40%.
-  // e.g. a ₹1,00,000 loan needs a monthly salary greater than ₹1,40,000.
   // If the salary is too low we stop here and show the notice instead of eligibility.
   const salary = Number(String(data.monthlySalaryRange ?? "").replace(/\D/g, ""));
   if (
     typeof data.loanAmount === "number" &&
     String(data.monthlySalaryRange ?? "").trim() !== "" &&
     !Number.isNaN(salary) &&
-    salary <= Math.round(data.loanAmount * 1.4)
+    salary < getRequiredMonthlySalary(data.loanAmount)
   ) {
-    const requiredSalary = Math.round(data.loanAmount * 1.4);
+    const requiredSalary = getRequiredMonthlySalary(data.loanAmount);
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: `Your monthly salary is too low for this loan. For a loan of ₹${data.loanAmount.toLocaleString("en-IN")}, your monthly salary must be more than ₹${requiredSalary.toLocaleString("en-IN")}.`,
+      message:
+        salary < MIN_MONTHLY_SALARY
+          ? `Minimum monthly salary should be ₹${MIN_MONTHLY_SALARY.toLocaleString("en-IN")}.`
+          : `Your monthly salary is too low for this loan. For a loan of ₹${data.loanAmount.toLocaleString("en-IN")}, your monthly salary must be at least ₹${requiredSalary.toLocaleString("en-IN")}.`,
       path: ["monthlySalaryRange"]
     });
   }
@@ -164,19 +179,19 @@ export const basicDetailsSchema = z.object({
     });
   }
 
-  // Monthly salary must be MORE than the requested loan amount + ₹50,000.
-  // e.g. a ₹1,00,000 loan needs a monthly salary greater than ₹1,50,000;
-  //      a ₹2,00,000 loan needs a monthly salary greater than ₹2,50,000.
-  // If the salary is too low we don't run eligibility — we just show this notice.
+  // Monthly salary must meet the required minimum for the loan amount.
   if (
     typeof data.monthlyIncome === "number" &&
     typeof data.loanAmount === "number" &&
-    data.monthlyIncome <= data.loanAmount + 50000
+    data.monthlyIncome < getRequiredMonthlySalary(data.loanAmount)
   ) {
-    const requiredSalary = data.loanAmount + 50000;
+    const requiredSalary = getRequiredMonthlySalary(data.loanAmount);
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: `Your monthly salary is too low for this loan. For a loan of ₹${data.loanAmount.toLocaleString("en-IN")}, your monthly salary must be more than ₹${requiredSalary.toLocaleString("en-IN")}. Please increase your monthly salary or reduce the loan amount.`,
+      message:
+        data.monthlyIncome < MIN_MONTHLY_SALARY
+          ? `Minimum monthly salary should be ₹${MIN_MONTHLY_SALARY.toLocaleString("en-IN")}.`
+          : `Your monthly salary is too low for this loan. For a loan of ₹${data.loanAmount.toLocaleString("en-IN")}, your monthly salary must be at least ₹${requiredSalary.toLocaleString("en-IN")}. Please increase your monthly salary or reduce the loan amount.`,
       path: ["monthlyIncome"]
     });
   }

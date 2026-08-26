@@ -18,6 +18,8 @@ import Image from "next/image"
 import { Loader2, CheckCircle2, Calendar, FileX2, Check, ClipboardList, Clock, IndianRupee, MessageCircle, Bookmark } from "lucide-react"
 import { formatAppNumber } from "@/lib/utils"
 import { REAPPLY_COOLDOWN_DAYS } from "@/lib/reapply-cooldown"
+import { getApplicationBlock, applicationBlockMessage } from "@/lib/application-gate"
+import { apiClient } from "@/lib/api"
 import { toast } from "sonner"
 
 export const dynamic = "force-dynamic";
@@ -72,13 +74,7 @@ function SignupContent() {
 
   // Auth check & Parameter pre-filling
   useEffect(() => {
-    // If a token is already present, skip straight to Step 2 (Eligibility Check).
-    // If the token has actually expired, the profile fetch below will get a 401 and
-    // apiClient's central handler will redirect back here to resignup.
     const hasToken = typeof window !== 'undefined' && !!localStorage.getItem('authToken');
-    if (hasToken) {
-      setCurrentStep(2);
-    }
 
     // Read URL query parameters
     const paramPhone = searchParams.get('phone') || 
@@ -114,35 +110,60 @@ function SignupContent() {
       });
     }
 
-    // Also populate phone and user data from profile if available. Only attempted when a
-    // token exists — otherwise this 401s and apiClient's central handler would bounce an
-    // anonymous first-time visitor straight back to /signup?expired=true.
+    // Verify application gate & profile status if an auth token exists.
+    // If blocked or profile is complete, clear token and redirect to /login immediately.
     if (hasToken) {
-      import("@/lib/api").then(({ apiClient }) => {
-        apiClient.getCompleteProfile().then((res) => {
-          if (res && res.profile) {
-            const p = res.profile as any;
-            if (p.phone) {
-              updateFormData('phoneVerification', {
-                ...formData.phoneVerification,
-                phoneNumber: p.phone.replace(/\D/g, '').slice(-10),
-              });
-            }
-            if (p.panVerification || p.name || p.aadhaarVerification) {
-              updateFormData('personalDetails', {
-                ...formData.personalDetails,
-                panNumber: p.panVerification?.panNumber || formData.personalDetails?.panNumber || "",
-                firstName: p.name || formData.personalDetails?.firstName || "",
-                aadhaarNumber: p.aadhaarVerification?.aadhaarNumber || formData.personalDetails?.aadhaarNumber || "",
-                email: p.email || formData.personalDetails?.email || "",
-                dateOfBirth: p.dob ? new Date(p.dob).toISOString().split('T')[0] : formData.personalDetails?.dateOfBirth || "",
-                gender: p.gender === "MALE" ? "Male" : (p.gender === "FEMALE" ? "Female" : formData.personalDetails?.gender || "Male"),
-              });
-            }
+      apiClient.getCompleteProfile().then((res) => {
+        if (res && res.profile) {
+          const p = res.profile as any;
+
+          // In process, or rejected inside 15-day cooldown -> blocked from new application
+          const block = getApplicationBlock(p.loanApplications);
+          if (block) {
+            toast.error(applicationBlockMessage(block));
+            apiClient.clearToken();
+            router.push('/login');
+            return;
           }
-        }).catch((e) => {
-          console.error("Failed to load user profile in signup:", e);
-        });
+
+          // Complete profile -> should use login instead of signup
+          const hasName = !!(p.name && p.name.trim().split(/\s+/).length >= 2);
+          const hasPan = !!(p.panVerification?.panNumber);
+          if (p.isProfileComplete || (hasName && hasPan)) {
+            toast.error('Your profile is already complete. Please login to apply.');
+            apiClient.clearToken();
+            router.push('/login');
+            return;
+          }
+
+          // Unblocked, incomplete user -> advance to Step 2
+          setCurrentStep(2);
+
+          if (p.phone) {
+            updateFormData('phoneVerification', {
+              ...formData.phoneVerification,
+              phoneNumber: p.phone.replace(/\D/g, '').slice(-10),
+            });
+          }
+          if (p.panVerification || p.name || p.aadhaarVerification) {
+            updateFormData('personalDetails', {
+              ...formData.personalDetails,
+              panNumber: p.panVerification?.panNumber || formData.personalDetails?.panNumber || "",
+              firstName: p.name || formData.personalDetails?.firstName || "",
+              aadhaarNumber: p.aadhaarVerification?.aadhaarNumber || formData.personalDetails?.aadhaarNumber || "",
+              email: p.email || formData.personalDetails?.email || "",
+              dateOfBirth: p.dob ? new Date(p.dob).toISOString().split('T')[0] : formData.personalDetails?.dateOfBirth || "",
+              gender: p.gender === "MALE" ? "Male" : (p.gender === "FEMALE" ? "Female" : formData.personalDetails?.gender || "Male"),
+            });
+          }
+        } else {
+          apiClient.clearToken();
+          setCurrentStep(1);
+        }
+      }).catch((e) => {
+        console.error("Failed to load user profile in signup:", e);
+        apiClient.clearToken();
+        setCurrentStep(1);
       });
     }
   }, [searchParams]);
