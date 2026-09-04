@@ -317,6 +317,11 @@ export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfile
             <option value="Kolkata">Kolkata</option>
             <option value="Pune">Pune</option>
             <option value="Chandigarh">Chandigarh</option>
+            <option value="Lucknow">Lucknow</option>
+            <option value="Patna">Patna</option>
+            <option value="Bhubaneswar">Bhubaneswar</option>
+            <option value="Nagpur">Nagpur</option>
+            <option value="Indore">Indore</option>
             <option value="Others">Others</option>
           </select>
           {errors.city && <p className="text-red-500 text-sm mt-1">{errors.city.message}</p>}
