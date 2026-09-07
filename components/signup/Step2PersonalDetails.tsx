@@ -81,6 +81,33 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
 
     setShowNameMismatch(false);
 
+    // Aadhaar gate. The submit button's `disabled` prop is a hint, not a guarantee —
+    // it can be bypassed by a programmatic submit, or be a render behind the real
+    // status. The number that goes into the payload must be exactly the 12 digits
+    // the backend just confirmed, or the application does not get submitted at all.
+    const aadhaarDigits = String(data.aadhaarNumber || '').replace(/\D/g, '');
+
+    if (aadhaarDigits.length !== 12) {
+      setAadhaarStatus('invalid');
+      setAadhaarError('Please enter a valid 12-digit Aadhaar number.');
+      toast.error('Please enter a valid 12-digit Aadhaar number.');
+      return;
+    }
+
+    if (aadhaarStatus !== 'valid' || verifiedAadhaarRef.current !== aadhaarDigits) {
+      // Never verified, still in flight, or the number changed after it was verified.
+      setIsLoading(true);
+      const ok = await verifyAadhaarNumber(aadhaarDigits);
+      setIsLoading(false);
+      if (!ok) {
+        toast.error(aadhaarError || 'Please enter a valid Aadhaar card number.');
+        return;
+      }
+    }
+
+    // Normalise to bare digits so the payload never carries spaces or dashes.
+    data.aadhaarNumber = aadhaarDigits;
+
     setIsLoading(true);
     setFormData(data);
     await onSubmit(data); // Defer the backend API calls to page.tsx's handler
@@ -178,7 +205,14 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
     }
   };
 
-  const verifyAadhaarNumber = React.useCallback(async (digits: string) => {
+  // Every keystroke past the 12th digit fires a check, so responses can land out of
+  // order. Only the newest request is allowed to write the status, otherwise a slow
+  // reply for an older number can mark the current one 'valid'.
+  const aadhaarReqIdRef = React.useRef(0);
+  const verifiedAadhaarRef = React.useRef<string | null>(null);
+
+  const verifyAadhaarNumber = React.useCallback(async (digits: string): Promise<boolean> => {
+    const reqId = ++aadhaarReqIdRef.current;
     setAadhaarStatus('checking');
     setAadhaarError(null);
     try {
@@ -187,17 +221,24 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
       if (response && response.success === false) {
         throw new Error(response.message || 'Please enter a valid Aadhaar card number.');
       }
+      if (reqId !== aadhaarReqIdRef.current) return false; // superseded
+      verifiedAadhaarRef.current = digits;
       setAadhaarStatus('valid');
+      return true;
     } catch (e: any) {
       const msg = (e.message || '').toLowerCase();
+      if (reqId !== aadhaarReqIdRef.current) return false; // superseded
       // A returning user's Aadhaar may already be verified on this session —
       // the backend refuses to verify it twice, but that still means it's valid
       if (msg.includes('already verified') || msg.includes('already validated')) {
+        verifiedAadhaarRef.current = digits;
         setAadhaarStatus('valid');
-        return;
+        return true;
       }
+      verifiedAadhaarRef.current = null;
       setAadhaarStatus('invalid');
       setAadhaarError(e.message || 'Please enter a valid Aadhaar card number.');
+      return false;
     }
   }, []);
 
@@ -219,6 +260,8 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
 
     // Reset status on edit
     if (digits.length < 12) {
+      aadhaarReqIdRef.current++; // invalidate any in-flight check
+      verifiedAadhaarRef.current = null;
       setAadhaarStatus('idle');
       setAadhaarError(null);
       return;

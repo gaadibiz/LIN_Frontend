@@ -41,8 +41,8 @@ export default function Footer() {
   };
 
   return (
-    <footer className="bg-[#FEF5F5] pt-14 pb-8 px-5 sm:px-8 md:px-12 lg:px-20 mt-28 border-t border-red-100/80 text-gray-700">
-      <div className="max-w-7xl mx-auto space-y-12">
+    <footer className="bg-[#FEF5F5] pt-14 pb-8 px-5 sm:px-8 md:px-12 mt-28 border-t border-red-100/80 text-gray-700">
+      <div className="max-w-8xl mx-auto space-y-12">
         {/* Top Quick Apply & Trust Action Banner */}
         <div className="bg-white border border-red-200/90 rounded-2xl p-6 sm:p-8 shadow-sm">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
@@ -313,8 +313,8 @@ export default function Footer() {
             <div className="pt-3 border-t border-red-100/90 text-xs text-gray-600 space-y-2">
               <div className="flex items-center gap-2">
                 <Mail className="w-3.5 h-3.5 text-primary shrink-0" />
-                <a href="mailto:support@loaninneed.com" className="hover:text-primary font-medium truncate">
-                  support@loaninneed.com
+                <a href="mailto:customerservice@loaninneed.in" className="hover:text-primary font-medium truncate">
+                  customerservice@loaninneed.in
                 </a>
               </div>
               <div className="flex items-center gap-2">

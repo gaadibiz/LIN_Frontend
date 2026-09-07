@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Mail, Phone, MessageCircle, Building } from "lucide-react";
+import { Phone, MessageCircle, Building } from "lucide-react";
 import FootCTA from "@/components/FootCTA";
 import Image from "next/image";
 import {
@@ -80,16 +80,6 @@ export default function ContactPage() {
         <div className="grid md:grid-cols-2 gap-8">
           {/* Contact Information */}
           <div className="space-y-8">
-            <div className="flex items-start space-x-4">
-              <div className="bg-red-50 p-3 rounded-lg">
-                <Mail className="w-6 h-6 text-red-500" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-1">Email</h3>
-                <p className="text-gray-600">customerservice@loaninneed.in</p>
-              </div>
-            </div>
-
             <div className="flex items-start space-x-4">
               <div className="bg-red-50 p-3 rounded-lg">
                 <Phone className="w-6 h-6 text-red-500" />

@@ -21,6 +21,16 @@ interface UseSignupReturn {
   resetForm: () => void;
 }
 
+// Raised when the KYC API is about to be called without a validated Aadhaar.
+// Kept distinct from ordinary sync errors so the non-blocking catch around
+// createApplication re-throws it instead of swallowing it.
+class AadhaarRequiredError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'AadhaarRequiredError';
+  }
+}
+
 // Helper to create empty file placeholder
 const createEmptyFile = (name: string, type: string): File => {
   const blob = new Blob([], { type });
@@ -85,7 +95,17 @@ export function useSignup(): UseSignupReturn {
     // submitKYC is the ONLY call in the app that carries the `submitted` flag — the
     // eligibility check, OTP verification, user registration and document upload all send
     // no such field, so the backend has a single unambiguous "application filed" signal.
-    const createApplication = async (basicDetails: any) => {
+    const createApplication = async (basicDetails: any, aadhaarNumber?: string) => {
+      // The KYC API is only ever hit with a validated Aadhaar in hand. Every caller
+      // runs verifyAndSaveAadhaar first; this is the structural backstop so a future
+      // call site cannot reintroduce an application row with no Aadhaar on it.
+      const cleanAadhaar = String(aadhaarNumber ?? '').replace(/\D/g, '');
+      if (cleanAadhaar.length !== 12) {
+        throw new AadhaarRequiredError(
+          'Your Aadhaar must be verified before the application can be submitted.'
+        );
+      }
+
       // Last line of defence. Every flow that files an application funnels through here,
       // so nothing can report submitted: true while another application is still in
       // process, or inside the 15-day cooldown after a rejection.
@@ -117,6 +137,10 @@ export function useSignup(): UseSignupReturn {
         purpose: basicDetails.purposeOfLoan || "Other",
         employmentType,
         ipAddress: basicDetails.ipAddress || (await getClientIp()),
+        // Carried on the application payload itself. The Aadhaar is verified and saved to
+        // the profile just before this call, but sending it here too means the application
+        // row can never be written without the number attached.
+        aadhaarNumber: cleanAadhaar,
         submitted: true,
       });
 
@@ -126,6 +150,43 @@ export function useSignup(): UseSignupReturn {
         setApplicationCreatedAt(application.createdAt);
       }
       return application;
+    };
+
+    // Aadhaar is a hard requirement, not a best-effort sync. Backend reported applications
+    // landing in the DB with no Aadhaar number, because this call used to run AFTER the
+    // application was already created with submitted: true, and swallowed every failure.
+    // Now it runs BEFORE createApplication and throws, so an application is never filed
+    // unless the Aadhaar has actually been accepted and stored.
+    const verifyAndSaveAadhaar = async (rawAadhaar: unknown): Promise<string> => {
+      const cleanAadhaar = String(rawAadhaar ?? '').replace(/\D/g, '');
+
+      if (cleanAadhaar.length !== 12) {
+        throw new Error('A valid 12-digit Aadhaar number is required to submit your application.');
+      }
+
+      try {
+        // The backend authController hits the Surepass Aadhaar Validation API and
+        // persists the number against the user profile.
+        const res = await apiClient.verifyAadhaarOtp(cleanAadhaar, "261102");
+        if (res && res.success === false) {
+          throw new Error(res.message || 'Aadhaar verification failed.');
+        }
+      } catch (aadhaarErr: any) {
+        const msg = String(aadhaarErr?.message || '').toLowerCase();
+        // A returning applicant's Aadhaar is already on the profile. The backend refuses
+        // to write it twice, but it IS stored — that is a pass, not a failure.
+        if (msg.includes('already verified') || msg.includes('already validated')) {
+          return cleanAadhaar;
+        }
+        console.error("Aadhaar Verification Error: ", aadhaarErr);
+        throw new Error(
+          aadhaarErr?.message
+            ? `Aadhaar verification failed: ${aadhaarErr.message}`
+            : 'We could not verify your Aadhaar number. Please check it and try again.'
+        );
+      }
+
+      return cleanAadhaar;
     };
 
     try {
@@ -203,30 +264,23 @@ export function useSignup(): UseSignupReturn {
           // CRM Integration: Push lead after successful user creation
           submitLeadToKylas(data, formData.phoneVerification.phoneNumber, formData.basicDetails, formData.kylasLeadId);
 
-          // === STAGE 2: Create the application (final submit of the signup flow) ===
+          // === STAGE 2: Verify & save the Aadhaar number ===
+          // Runs BEFORE the application is created. Throws on any failure, so a row can
+          // never reach the DB carrying submitted: true with the Aadhaar missing.
+          const verifiedAadhaar2 = await verifyAndSaveAadhaar(data.aadhaarNumber);
+
+          // === STAGE 3: Create the application (final submit of the signup flow) ===
           try {
-            await createApplication(formData.basicDetails);
+            await createApplication(formData.basicDetails, verifiedAadhaar2);
           } catch (kycErr) {
-            // A blocked application is a hard stop, unlike the sync failures this swallows.
+            // A blocked application, or a missing Aadhaar, is a hard stop — unlike the
+            // sync failures this swallows.
             if (kycErr instanceof ApplicationBlockedError) throw kycErr;
+            if (kycErr instanceof AadhaarRequiredError) throw kycErr;
             console.error("KYC Sync Error (Non-blocking): ", kycErr);
           }
 
-          // === STAGE 2.5: Verify & Save Aadhaar Number ===
-          if (data.aadhaarNumber) {
-            const cleanAadhaar = data.aadhaarNumber.replace(/\D/g, '');
-            if (cleanAadhaar.length === 12) {
-              try {
-                // We send a generic OTP. The backend authController will hit Surepass Aadhaar Validation API 
-                await apiClient.verifyAadhaarOtp(cleanAadhaar, "261102");
-              } catch (aadhaarErr) {
-                console.error("Aadhaar Sync Error: ", aadhaarErr);
-                // We catch it so failure doesn't block final document upload, or throw it to enforce validation.
-              }
-            }
-          }
-
-          // === STAGE 3: Submit Documents (For 3-Step Flow) ===
+          // === STAGE 4: Submit Documents (For 3-Step Flow) ===
           try {
             // Upload PAN separately
             if (data.panImage && data.panImage instanceof File && data.panImage.size > 0) {
@@ -282,16 +336,23 @@ export function useSignup(): UseSignupReturn {
           }
           documentFormDataSeparate.append('bankStatements', data.bankStatementFile);
 
+          // Aadhaar first: the KYC API is not called at all unless it validates.
+          const verifiedAadhaar4 = await verifyAndSaveAadhaar(
+            formData.personalDetails?.aadhaarNumber,
+          );
+
           // Final step of the apply-now / dashboard flow: the bank statement is in hand, so
           // the application gets created and submitted in one go.
-          await createApplication(formData.basicDetails);
+          await createApplication(formData.basicDetails, verifiedAadhaar4);
           await apiClient.submitDocuments(documentFormDataSeparate);
           return true;
 
         case 5:
-          // Verify Aadhaar OTP
-          // In the new flow this step is skipped, but if used, Aadhaar number might have to be collected differently.
-          await apiClient.verifyAadhaarOtp("skipped-in-new-flow", data.aadhaarOtp);
+          // Legacy standalone Aadhaar-OTP step — unreachable in the current flow. It used to
+          // POST the literal string "skipped-in-new-flow" as the Aadhaar number, which would
+          // write junk into the Aadhaar column if this step were ever wired back up. It now
+          // goes through the same guard as every other flow: a real 12-digit number or nothing.
+          await verifyAndSaveAadhaar(data.aadhaarNumber);
           return true;
 
         case 6:
@@ -352,18 +413,12 @@ export function useSignup(): UseSignupReturn {
           // CRM Integration: Push lead after successful user creation for apply-now flow
           submitLeadToKylas(data, formData.phoneVerification?.phoneNumber || "", formData.basicDetails, formData.kylasLeadId);
 
-          // Create the application — the profile is in place and the form is complete
-          await createApplication(formData.basicDetails);
+          // Verify & save the Aadhaar BEFORE the application is created. Throws on any
+          // failure, so no application is filed without the Aadhaar landing in the DB.
+          const verifiedAadhaar7 = await verifyAndSaveAadhaar(data.aadhaarNumber);
 
-          // Verify Aadhaar
-          if (data.aadhaarNumber) {
-            const cleanAadhaar = data.aadhaarNumber.replace(/\D/g, '');
-            if (cleanAadhaar.length === 12) {
-              try {
-                await apiClient.verifyAadhaarOtp(cleanAadhaar, "261102");
-              } catch (e) { console.error(e) }
-            }
-          }
+          // Create the application — the profile is in place and the form is complete
+          await createApplication(formData.basicDetails, verifiedAadhaar7);
 
           // Upload Documents
           try {
@@ -395,6 +450,11 @@ export function useSignup(): UseSignupReturn {
         setTimeout(() => {
           router.push('/login');
         }, 1500);
+      } else if (lowerError.includes('aadhaar')) {
+        // Checked before the PAN branch: an Aadhaar failure whose backend message happens
+        // to contain "pan" must not be reported to the user as a PAN conflict.
+        finalErrorMsg = errorMsg;
+        toast.error(finalErrorMsg);
       } else if (lowerError.includes('pan') || lowerError.includes('another account')) {
         // PAN conflict — show message but don't redirect
         finalErrorMsg = 'This PAN number is already registered with another account.';

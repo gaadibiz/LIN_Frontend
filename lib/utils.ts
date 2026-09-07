@@ -37,6 +37,14 @@ export function formatAppNumber(id: number | string | null | undefined, aadhaar?
   return `${prefix}${year}${aaaa}${serial}`;
 }
 
+// UIDAI does not allow a full Aadhaar number to be displayed back to the user, so the
+// profile shows only the last 4 digits — unlike the PAN, which is shown in full.
+export function maskAadhaar(aadhaar?: string | null): string {
+  const digits = typeof aadhaar === 'string' ? aadhaar.replace(/\D/g, '') : '';
+  if (digits.length !== 12) return '';
+  return `XXXX XXXX ${digits.slice(-4)}`;
+}
+
 // Age eligibility for a personal loan — mirrored in the "Eligibility check" grid
 // (see eligibilityCriteria in lib/data.tsx). Keep the two in sync.
 export const MIN_ELIGIBLE_AGE = 21;

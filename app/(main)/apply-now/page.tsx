@@ -243,10 +243,13 @@ function ApplyNowContent() {
                             consentTwo: true
                         });
                     }
-                    // Check profile completeness (Name + PAN required)
+                    // Check profile completeness (Name + PAN + Aadhaar required).
+                    // Aadhaar counts exactly like PAN: a profile missing it is NOT complete,
+                    // so the user is sent back through the form to supply and verify it.
                     const hasName = !!(p.name && p.name.trim().split(/\s+/).length >= 2);
                     const hasPan = !!(p.panVerification?.panNumber);
-                    setIsProfileComplete(hasName && hasPan);
+                    const hasAadhaar = !!(p.aadhaarVerification?.aadhaarNumber);
+                    setIsProfileComplete(hasName && hasPan && hasAadhaar);
 
                     updateFormData('basicDetails', {
                         loanAmount: 0,

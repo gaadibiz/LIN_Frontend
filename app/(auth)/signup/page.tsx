@@ -126,10 +126,14 @@ function SignupContent() {
             return;
           }
 
-          // Complete profile -> should use login instead of signup
+          // Complete profile -> should use login instead of signup.
+          // Aadhaar is required alongside PAN — a profile with a PAN but no verified
+          // Aadhaar is incomplete, and must continue through the form rather than be
+          // bounced to login with the Aadhaar never collected.
           const hasName = !!(p.name && p.name.trim().split(/\s+/).length >= 2);
           const hasPan = !!(p.panVerification?.panNumber);
-          if (p.isProfileComplete || (hasName && hasPan)) {
+          const hasAadhaar = !!(p.aadhaarVerification?.aadhaarNumber);
+          if (hasAadhaar && (p.isProfileComplete || (hasName && hasPan))) {
             toast.error('Your profile is already complete. Please login to apply.');
             apiClient.clearToken();
             router.push('/login');

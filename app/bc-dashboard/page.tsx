@@ -524,7 +524,7 @@ function BCDashboardContent() {
                         <Mail size={24} />
                     </div>
                     <div>
-                        <p className="text-[17px] font-bold text-gray-900">Email: support@loaninneed.in</p>
+                        <p className="text-[17px] font-bold text-gray-900">Email: customerservice@loaninneed.in</p>
                     </div>
                 </div>
             </div>

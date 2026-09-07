@@ -319,6 +319,9 @@ class ApiClient {
     termMonths?: number;
     employmentType?: string;
     ipAddress?: string;
+    // Sent alongside the application so the Aadhaar lands on the application row itself,
+    // not only on the user profile written by the separate Aadhaar verification call.
+    aadhaarNumber?: string;
     // The one and only `submitted` flag the frontend sends. Set to true by createApplication
     // (hooks/useSignup.ts) on the final "Submit Application" click, so the backend can tell a
     // filed application from an abandoned one. No other endpoint receives this field.

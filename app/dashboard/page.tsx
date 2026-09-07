@@ -4,7 +4,7 @@
 import React, { Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { useAffiliate } from "@/hooks/useAffiliate";
-import { formatAppNumber } from "@/lib/utils";
+import { formatAppNumber, maskAadhaar } from "@/lib/utils";
 import { getSubmittedApplications } from "@/lib/application-status";
 import {
   getApplicationBlock,
@@ -538,6 +538,13 @@ function DashboardContent() {
             {
               label: "PAN",
               value: p.panVerification?.panNumber || "Not Verified",
+              locked: true,
+            },
+            {
+              // Shown to the customer the same way the PAN is. Masked to the last 4
+              // digits — a full Aadhaar must not be displayed back.
+              label: "Aadhaar",
+              value: maskAadhaar(p.aadhaarVerification?.aadhaarNumber) || "Not Verified",
               locked: true,
             },
           ]);
@@ -1395,7 +1402,7 @@ function DashboardContent() {
           </div>
           <div>
             <p className="text-[17px] font-bold text-gray-900">
-              Email: support@loaninneed.in
+              Email: customerservice@loaninneed.in
             </p>
           </div>
         </div>
