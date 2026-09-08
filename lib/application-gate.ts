@@ -42,6 +42,17 @@ const DECIDED_STATUSES = new Set([
 
 export const IN_PROCESS_LABEL = "In Process";
 
+// Repayment is only ever collected against a loan whose money has actually gone out —
+// the backend marks those DISBURSED or COMPLETED. Everything else (still in process,
+// approved but not yet paid out, rejected) has nothing to pay back yet, so the Repay Loan
+// tab lists exactly the applications the dashboard shows as "Disbursed" or "Completed".
+const REPAYABLE_STATUSES = new Set(["DISBURSED", "COMPLETED"]);
+
+export function isRepayableApplication(application: GateApplication | null | undefined): boolean {
+  if (!application) return false;
+  return REPAYABLE_STATUSES.has(String(application.status ?? "").trim().toUpperCase());
+}
+
 export function isInProcessApplication(application: GateApplication | null | undefined): boolean {
   if (!application) return false;
   const status = String(application.status ?? "").trim().toUpperCase();

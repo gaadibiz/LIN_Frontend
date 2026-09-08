@@ -9,6 +9,7 @@ import { getSubmittedApplications } from "@/lib/application-status";
 import {
   getApplicationBlock,
   formatApplicationStatus,
+  isRepayableApplication,
   IN_PROCESS_LABEL,
   type ApplicationBlock,
 } from "@/lib/application-gate";
@@ -434,6 +435,13 @@ function DashboardContent() {
   const [bankDetailsLoanId, setBankDetailsLoanId] = React.useState<
     string | null
   >(null);
+
+  // Repay Loan only ever lists disbursed and completed loans. Loan history keeps
+  // showing every submitted application, whatever its status.
+  const repayableLoans = React.useMemo(
+    () => loanHistoryData.filter(isRepayableApplication),
+    [loanHistoryData],
+  );
 
   React.useEffect(() => {
     if (!qrLoan) return;
@@ -1141,9 +1149,9 @@ function DashboardContent() {
         </h2>
       </div>
 
-      {loanHistoryData.length > 0 ? (
+      {repayableLoans.length > 0 ? (
         <div className="grid gap-6">
-          {loanHistoryData.map((loan, index) => (
+          {repayableLoans.map((loan, index) => (
             <div
               key={loan.id || index}
               className="grid grid-cols-1 md:grid-cols-4 gap-6 md:gap-8 items-center p-6 bg-white rounded-3xl border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(239,68,68,0.08)] transition-all"
@@ -1168,19 +1176,8 @@ function DashboardContent() {
                 <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider">
                   Status
                 </p>
-                <span
-                  className={`inline-block text-[11px] px-3 py-1 rounded-full font-bold uppercase tracking-wider
-                                    ${
-                                      formatApplicationStatus(loan.status) ===
-                                      IN_PROCESS_LABEL
-                                        ? "bg-amber-100 text-amber-700"
-                                        : loan.status === "APPROVED"
-                                          ? "bg-emerald-100 text-emerald-700"
-                                          : loan.status === "REJECTED"
-                                            ? "bg-red-100 text-red-700"
-                                            : "bg-gray-100 text-gray-700"
-                                    }`}
-                >
+                {/* Every card here is a disbursed or completed loan, so one look fits both. */}
+                <span className="inline-block text-[11px] px-3 py-1 rounded-full font-bold uppercase tracking-wider bg-emerald-100 text-emerald-700">
                   {formatApplicationStatus(loan.status)}
                 </span>
               </div>
