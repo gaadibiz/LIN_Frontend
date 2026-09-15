@@ -3,10 +3,10 @@ export const config = {
   // Backend API Configuration
   apiUrl:
     process.env.NEXT_PUBLIC_BACKEND_URL ||
-    "https://geographic-participate-impression-dat.trycloudflare.com",
+    "https://be-prod.bumchumfinserve.com",
   backendUrl:
     process.env.NEXT_PUBLIC_BACKEND_URL ||
-    "https://geographic-participate-impression-dat.trycloudflare.com",
+    "https://be-prod.bumchumfinserve.com",
 
   // Supabase Configuration (if needed for file uploads)
   supabase: {
