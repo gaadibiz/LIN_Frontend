@@ -856,10 +856,10 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
           it from the one component that owns the Aadhaar field. */}
       <DigilockerModal
         session={digilockerSession}
-        popup={digilockerPopup}
+        // popup={digilockerPopup}
         onClose={handleDigilockerCancel}
         onComplete={handleDigilockerComplete}
-        onReopen={handleDigilockerReopen}
+        // onReopen={handleDigilockerReopen}
       />
 
       {/* Age eligibility alert — age is derived from the DOB on the verified PAN/Aadhaar */}
