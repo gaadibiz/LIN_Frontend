@@ -202,10 +202,12 @@ export const readRedirectOrigin = (url: string): string | null => {
 // The callback redirect is not guaranteed — the backend may finish the OAuth exchange
 // and never send the popup back to CALLBACK_PATH. What it always does is write the
 // Aadhaar onto the user's profile. So once the popup is open we poll
-// /api/users/profile/complete and treat the arrival of full Aadhaar details as the
-// success signal, whichever way the popup itself ends up.
+// /api/users/profile/complete and wait for aadhaarVerification.verified to turn true,
+// whichever way the popup itself ends up. The row appears immediately with
+// verified:false, so the flag — not the row, and not the number — is the signal.
 
 export interface AadhaarProfile {
+  // Only ever built from a record whose `verified` flag is true — see readAadhaarProfile.
   aadhaarNumber: string;
   // Optional: the backend may write the number before, or without, the name. The number
   // is what proves consent went through, so it alone decides success — the name is only
@@ -218,8 +220,13 @@ export interface AadhaarProfile {
 /**
  * Pulls Aadhaar details out of a complete-profile response.
  *
- * The Aadhaar number is the signal: the backend only writes it once DigiLocker has
- * returned the document, so its presence IS the completed consent.
+ * `verified === true` is the ONLY success signal.
+ *
+ * The aadhaarNumber is NOT one: the backend creates the aadhaarVerification row the
+ * moment request-digilocker is called, with the number already filled in and
+ * `verified: false`. Treating the number as proof of consent matched on the very first
+ * poll — closing the popup before the customer had signed in, and validating an Aadhaar
+ * that DigiLocker had never confirmed. The flag is what flips when consent really lands.
  */
 export const readAadhaarProfile = (res: unknown): AadhaarProfile | null => {
   const profile = asRecord(asRecord(res).profile);
@@ -227,6 +234,15 @@ export const readAadhaarProfile = (res: unknown): AadhaarProfile | null => {
 
   const aadhaarNumber = asNonEmptyString(verification.aadhaarNumber);
   if (!aadhaarNumber) return null;
+
+  // Accepts the boolean and the string form, since JSON from different backends differs.
+  const isVerified =
+    verification.verified === true || String(verification.verified).toLowerCase() === 'true';
+
+  if (!isVerified) {
+    console.log('[DigiLocker] aadhaar row exists but verified=false — consent not finished yet');
+    return null;
+  }
 
   // DigiLocker's own name, if the backend stored it on the verification record;
   // otherwise the profile name it wrote from the same source.
@@ -258,8 +274,17 @@ export const checkAadhaarOnProfile = async (): Promise<AadhaarProfile | null> =>
   }
 };
 
-const POLL_INTERVAL_MS = 3000;
 const POLL_TIMEOUT_MS = 5 * 60 * 1000; // DigiLocker sign-in + OTP takes a while
+
+// Polling is a fallback, not the intended mechanism — the backend redirecting the popup
+// to CALLBACK_PATH would remove it entirely. Until it does, the interval widens the
+// longer the customer takes, so a slow sign-in does not mean a hundred profile reads.
+// The first minute is polled briskly because that is when a quick customer finishes.
+const pollIntervalFor = (elapsedMs: number): number => {
+  if (elapsedMs < 60_000) return 4000;
+  if (elapsedMs < 150_000) return 8000;
+  return 15_000;
+};
 
 /**
  * Polls the complete-profile endpoint until the Aadhaar details land.
@@ -275,7 +300,8 @@ export const pollForAadhaarDetails = async (
   isCancelled: () => boolean,
   onAttempt?: (attempt: number) => void,
 ): Promise<AadhaarProfile | null> => {
-  const deadline = Date.now() + POLL_TIMEOUT_MS;
+  const startedAt = Date.now();
+  const deadline = startedAt + POLL_TIMEOUT_MS;
   let attempt = 0;
 
   while (Date.now() < deadline) {
@@ -284,14 +310,23 @@ export const pollForAadhaarDetails = async (
       return null;
     }
 
+    // While the customer is inside the popup this tab is hidden, and nothing they do
+    // there is visible to us anyway. Skipping the read costs nothing: the modal checks
+    // immediately when the tab regains focus, which is the moment they come back.
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      continue;
+    }
+
     attempt += 1;
-    console.log(`[DigiLocker] profile poll #${attempt}`);
+    const elapsed = Date.now() - startedAt;
+    console.log(`[DigiLocker] profile poll #${attempt} (next in ${pollIntervalFor(elapsed) / 1000}s)`);
     onAttempt?.(attempt);
     const details = await checkAadhaarOnProfile();
     if (details) return details;
 
     if (isCancelled()) return null;
-    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+    await new Promise((resolve) => setTimeout(resolve, pollIntervalFor(elapsed)));
   }
 
   console.warn('[DigiLocker] profile polling timed out — no aadhaar details after 5 minutes');

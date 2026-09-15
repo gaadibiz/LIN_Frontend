@@ -44,6 +44,8 @@ export function DigilockerModal({ session, popup, onClose, onComplete, onReopen 
   const [popupClosed, setPopupClosed] = React.useState(false)
   // Shown in the panel, so it is visible whether the profile is actually being polled.
   const [pollAttempt, setPollAttempt] = React.useState(0)
+  const [isDeciding, setIsDeciding] = React.useState(false)
+  const decidingRef = React.useRef(false)
 
   // Mirrors the popup prop, so the poll can close whichever window is current without
   // being restarted every time that handle changes.
@@ -79,6 +81,8 @@ export function DigilockerModal({ session, popup, onClose, onComplete, onReopen 
     settledRef.current = false
     setPopupClosed(false)
     setPollAttempt(0)
+    setIsDeciding(false)
+    decidingRef.current = false
   }, [session])
 
   // The outcome. The backend redirects the popup to our own /digilocker/callback page,
@@ -140,6 +144,63 @@ export function DigilockerModal({ session, popup, onClose, onComplete, onReopen 
     }
   }, [session])
 
+  // The decision, as a single place both the popup-closed watcher and the "I have
+  // finished" button call.
+  //
+  //   verified === true  -> close the popup and let the form validate the Aadhaar
+  //   verified === false -> close the popup and tell the customer to verify again
+  //
+  // There is no third outcome: the customer has left DigiLocker, so the flag is final
+  // as far as this attempt is concerned.
+  const decideFromProfile = React.useCallback(async () => {
+    // Guarded by a ref, not by the isDeciding state: state would change this callback's
+    // identity and restart the watcher effect that calls it. The state exists only to
+    // put the button into its "Checking…" label.
+    if (settledRef.current || decidingRef.current) return
+    decidingRef.current = true
+    setIsDeciding(true)
+
+    const profile = await checkAadhaarOnProfile()
+    if (settledRef.current) return
+
+    popupRef.current?.close()
+
+    if (profile) {
+      console.log('[DigiLocker] verified — closing the popup and validating')
+      settleRef.current("success", profile)
+      return
+    }
+
+    console.warn('[DigiLocker] not verified — closing the popup, customer must verify again')
+    settleRef.current("failed")
+  }, [])
+
+  // Returning to this tab is the strongest hint that the customer has finished in the
+  // popup, so it triggers one read straight away. This is what makes the skipping and
+  // the backoff above safe: the cheap path covers the waiting, and the moment something
+  // is likely to have changed, we look.
+  React.useEffect(() => {
+    if (!session) return
+
+    const checkNow = () => {
+      if (document.visibilityState !== "visible" || settledRef.current) return
+      console.log('[DigiLocker] tab regained focus — checking the profile now')
+      checkAadhaarOnProfile().then((profile) => {
+        if (profile && !settledRef.current) {
+          popupRef.current?.close()
+          settleRef.current("success", profile)
+        }
+      })
+    }
+
+    window.addEventListener("focus", checkNow)
+    document.addEventListener("visibilitychange", checkNow)
+    return () => {
+      window.removeEventListener("focus", checkNow)
+      document.removeEventListener("visibilitychange", checkNow)
+    }
+  }, [session])
+
   // A popup gives no "closed" event, so it has to be watched. Closing it without a result
   // is not treated as a failure — the user may have dismissed it by accident, so the
   // panel just offers to open it again.
@@ -151,21 +212,14 @@ export function DigilockerModal({ session, popup, onClose, onComplete, onReopen 
       window.clearInterval(timer)
       if (settledRef.current) return
 
-      // The popup closing usually means the customer just finished. Check the profile
-      // immediately rather than waiting for the next poll tick.
-      console.log('[DigiLocker] popup closed — checking the profile right away')
-      checkAadhaarOnProfile().then((profile) => {
-        if (settledRef.current) return
-        if (profile) {
-          settleRef.current("success", profile)
-          return
-        }
-        setPopupClosed(true)
-      })
+      // The popup closing means the customer is done with DigiLocker one way or the
+      // other, so this check decides the outcome rather than going back to waiting.
+      console.log('[DigiLocker] popup closed — deciding on the profile')
+      decideFromProfile()
     }, 500)
 
     return () => window.clearInterval(timer)
-  }, [session, popup])
+  }, [session, popup, decideFromProfile])
 
   const needsAction = popupClosed || !popup
 
@@ -210,6 +264,14 @@ export function DigilockerModal({ session, popup, onClose, onComplete, onReopen 
                   ? `Checking your Aadhaar details… (attempt ${pollAttempt})`
                   : "Starting verification check…"}
               </p>
+              <Button
+                type="button"
+                onClick={decideFromProfile}
+                disabled={isDeciding}
+                className="w-full h-11 rounded-xl bg-[#1c2b4f] hover:bg-[#16223f] text-white text-sm font-bold"
+              >
+                {isDeciding ? "Checking…" : "I have completed verification"}
+              </Button>
               <button
                 type="button"
                 onClick={onReopen}

@@ -34,21 +34,34 @@ export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfile
     }
   })
 
+  // The `formData` prop is built as an inline object literal by the parent, so it is a
+  // NEW object on every parent render even when nothing in it changed. Depending on its
+  // identity meant reset() ran on every render and threw away whatever the customer had
+  // picked — the purpose-of-loan dropdown emptying itself was this. Comparing the values
+  // instead means a reset only happens when the incoming values genuinely differ.
+  const lastAppliedRef = React.useRef<string | null>(null)
+
   React.useEffect(() => {
-    if (formData) {
-      reset({
-        loanAmount: formData.loanAmount || undefined,
-        purposeOfLoan: formData.purposeOfLoan || "",
-        monthlySalaryRange: formData.monthlySalaryRange || (formData as any).monthlyIncome?.toString() || "",
-        occupation: formData.occupation || "Salaried",
-        salaryReceivedIn: formData.salaryReceivedIn || "Bank Transfer",
-        city: formData.city || "",
-      })
-      if (formData.loanAmount || formData.city || formData.purposeOfLoan) {
-        setTimeout(() => {
-          trigger()
-        }, 0)
-      }
+    if (!formData) return
+
+    const incoming = {
+      loanAmount: formData.loanAmount || undefined,
+      purposeOfLoan: formData.purposeOfLoan || "",
+      monthlySalaryRange: formData.monthlySalaryRange || (formData as any).monthlyIncome?.toString() || "",
+      occupation: formData.occupation || "Salaried",
+      salaryReceivedIn: formData.salaryReceivedIn || "Bank Transfer",
+      city: formData.city || "",
+    }
+
+    const signature = JSON.stringify(incoming)
+    if (signature === lastAppliedRef.current) return
+    lastAppliedRef.current = signature
+
+    reset(incoming)
+    if (incoming.loanAmount || incoming.city || incoming.purposeOfLoan) {
+      setTimeout(() => {
+        trigger()
+      }, 0)
     }
   }, [formData, reset, trigger])
 
