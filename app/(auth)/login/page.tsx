@@ -22,6 +22,25 @@ import { Suspense } from "react"
 
 export const dynamic = "force-dynamic";
 
+declare global {
+  interface Window {
+    gtag?: (command: string, eventName: string, eventParameters: Record<string, unknown>) => void;
+  }
+}
+
+function gtag_report_conversion(): false {
+  if (typeof window.gtag === "function") {
+    window.gtag("event", "conversion", {
+      send_to: "AW-10980985072/7fTtCM6quPEcEPCRkvQo",
+      value: 1.0,
+      currency: "INR",
+      event_callback: () => undefined,
+    });
+  }
+
+  return false;
+}
+
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -102,6 +121,7 @@ function LoginForm() {
   }, [step, otpResendTimer])
 
   const handleStep1Submit = async (data: LoginStep1Form) => {
+    gtag_report_conversion()
     const success = await loginStep1(data)
     if (success) {
       setOtpResendTimer(30)
@@ -420,4 +440,3 @@ export default function LoginPage() {
     </Suspense>
   )
 }
-

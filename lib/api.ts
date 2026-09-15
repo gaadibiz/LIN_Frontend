@@ -478,6 +478,31 @@ class ApiClient {
     });
   }
 
+  // DigiLocker hand-off. Called once the Aadhaar number has been verified and the
+  // application filed, to get the consent URL the user is redirected to. The backend
+  // owns the DigiLocker client/redirect configuration; the frontend only follows the
+  // URL it hands back.
+  // `redirectUrl` is where the backend should send the browser once it knows the
+  // outcome — our own callback page. Sent only when we have one (never on the server),
+  // so a backend that ignores the field still sees the body it expects.
+  async requestDigilocker(aadhaarNumber: string, redirectUrl?: string): Promise<ApiResponse> {
+    return this.request<ApiResponse>('/api/auth/aadhaar/request-digilocker', {
+      method: 'POST',
+      body: JSON.stringify(redirectUrl ? { aadhaarNumber, redirectUrl } : { aadhaarNumber }),
+    });
+  }
+
+  // Polls the outcome of a DigiLocker session by the requestId that request-digilocker
+  // returned. Needed because DigiLocker's redirect_uri points at the BACKEND's domain,
+  // not ours — the frontend never sees the OAuth callback and cannot read the consent
+  // window's URL cross-origin, so the backend is the only source of truth for the result.
+  // NOTE: confirm this path with the backend; it is inferred from its sibling endpoints.
+  async getDigilockerStatus(requestId: string): Promise<ApiResponse> {
+    return this.request<ApiResponse>(
+      `/api/auth/aadhaar/digilocker-status/${encodeURIComponent(requestId)}`,
+    );
+  }
+
   // Real-time Aadhaar existence check — lightweight, no DB writes
   async validateAadhaar(aadhaarNumber: string): Promise<ApiResponse> {
     return this.request<ApiResponse>('/api/auth/aadhaar/validate', {

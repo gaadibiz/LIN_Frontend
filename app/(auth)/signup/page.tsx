@@ -24,6 +24,34 @@ import { toast } from "sonner"
 
 export const dynamic = "force-dynamic";
 
+declare global {
+  interface Window {
+    gtag?: (command: string, eventName: string, eventParameters: Record<string, unknown>) => void;
+  }
+}
+
+function gtag_report_conversion(
+  url?: string,
+  sendTo = "AW-10980985072/u3BACPXFuvEcEPCRkvQo",
+): false {
+  const callback = () => {
+    if (typeof url !== "undefined") {
+      window.location.href = url;
+    }
+  };
+
+  if (typeof window.gtag === "function") {
+    window.gtag("event", "conversion", {
+      send_to: sendTo,
+      value: 1.0,
+      currency: "INR",
+      event_callback: callback,
+    });
+  }
+
+  return false;
+}
+
 interface Step {
   id: number;
   title: string;
@@ -179,6 +207,7 @@ function SignupContent() {
   }
 
   const handlePhoneSubmit = async (data: PhoneVerificationData): Promise<void> => {
+    gtag_report_conversion(undefined, "AW-10980985072/7fTtCM6quPEcEPCRkvQo");
     updateFormData('phoneVerification', data)
     const success = await submitStep(1, data)
     if (success) {
@@ -189,6 +218,7 @@ function SignupContent() {
   }
 
   const handleOtpVerify = async (data: PhoneVerificationData): Promise<void> => {
+    gtag_report_conversion(undefined, "AW-10980985072/gH0WCNypsPEcEPCRkvQo");
     updateFormData('phoneVerification', data)
     const success = await submitStep(1, data)
     if (success) {
@@ -197,6 +227,7 @@ function SignupContent() {
   }
 
   const handleEligibilitySubmit = async (data: EligibilityForm) => {
+    gtag_report_conversion();
     setIsCheckingEligibility(true);
 
     // Explicitly update global context so the final Step 3 submission can access the loan details

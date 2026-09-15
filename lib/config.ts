@@ -1,18 +1,22 @@
 // Configuration for the application
 export const config = {
   // Backend API Configuration
-  apiUrl: process.env.NEXT_PUBLIC_BACKEND_URL || 'https://lionfish-app-mg3te.ondigitalocean.app',
-  backendUrl: process.env.NEXT_PUBLIC_BACKEND_URL || 'https://lionfish-app-mg3te.ondigitalocean.app',
+  apiUrl:
+    process.env.NEXT_PUBLIC_BACKEND_URL ||
+    "https://geographic-participate-impression-dat.trycloudflare.com",
+  backendUrl:
+    process.env.NEXT_PUBLIC_BACKEND_URL ||
+    "https://geographic-participate-impression-dat.trycloudflare.com",
 
   // Supabase Configuration (if needed for file uploads)
   supabase: {
-    url: process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-    anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+    url: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+    anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
   },
 
   // App Configuration
   app: {
-    name: 'LoanInNeed',
-    version: '1.0.0',
+    name: "LoanInNeed",
+    version: "1.0.0",
   },
 };

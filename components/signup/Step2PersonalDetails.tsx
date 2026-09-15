@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
 import React, { useState } from "react"
@@ -7,11 +8,13 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { personalDetailsSchema, type PersonalDetailsForm } from "@/lib/signup-schemas"
-import { Lock, User, Mail, FileText, UploadCloud, FileBadge2, AlertTriangle } from "lucide-react"
+import { Lock, User, Mail, FileText, UploadCloud, FileBadge2, AlertTriangle, ShieldCheck } from "lucide-react"
 import { FileUpload } from "../ui/file-upload"
 import { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator } from "@/components/ui/input-otp"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { calculateAge, isAgeEligible, MIN_ELIGIBLE_AGE, MAX_ELIGIBLE_AGE } from "@/lib/utils"
+import { DigilockerModal } from "@/components/signup/DigilockerModal"
+import { fetchDigilockerSession, openConsentPopup, steerPopupTo, type AadhaarProfile, type DigilockerSession, type DigilockerStatus } from "@/lib/digilocker"
 
 interface Step2Props {
   onSubmit: (data: PersonalDetailsForm) => void;
@@ -30,6 +33,18 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
   
   const [showNameMismatch, setShowNameMismatch] = useState(false);
   const [showAgeAlert, setShowAgeAlert] = useState(false);
+
+  // DigiLocker session (consent URL + requestId); null keeps the modal closed.
+  const [digilockerSession, setDigilockerSession] = useState<DigilockerSession | null>(null);
+  const [isRequestingDigilocker, setIsRequestingDigilocker] = useState(false);
+  const [digilockerStatus, setDigilockerStatus] = useState<'idle' | 'verified' | 'failed'>('idle');
+  // The consent window. Held in a ref so re-renders do not lose the handle, and mirrored
+  // into state so the modal re-renders when it appears or is refused.
+  const digilockerPopupRef = React.useRef<Window | null>(null);
+  // The number the consent was raised for. The validate call after a success must use
+  // this, not whatever is in the field by then.
+  const digilockerAadhaarRef = React.useRef<string | null>(null);
+  const [digilockerPopup, setDigilockerPopup] = useState<Window | null>(null);
 
   const { register, handleSubmit, setValue, watch, control, formState: { errors, isValid }, trigger } = useForm<PersonalDetailsForm>({
     resolver: zodResolver(personalDetailsSchema) as any,
@@ -94,15 +109,12 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
       return;
     }
 
-    if (aadhaarStatus !== 'valid' || verifiedAadhaarRef.current !== aadhaarDigits) {
-      // Never verified, still in flight, or the number changed after it was verified.
-      setIsLoading(true);
-      const ok = await verifyAadhaarNumber(aadhaarDigits);
-      setIsLoading(false);
-      if (!ok) {
-        toast.error(aadhaarError || 'Please enter a valid Aadhaar card number.');
-        return;
-      }
+    // No validate call here either. DigiLocker is the gate: if consent did not succeed
+    // the number was never validated, and the answer is to run DigiLocker — not to call
+    // validate behind its back.
+    if (digilockerStatus !== 'verified' || verifiedAadhaarRef.current !== aadhaarDigits) {
+      toast.error('Please verify your Aadhaar with DigiLocker before continuing.');
+      return;
     }
 
     // Normalise to bare digits so the payload never carries spaces or dashes.
@@ -242,17 +254,166 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
     }
   }, []);
 
-  // Session resume: when a returning user's saved profile prefills the Aadhaar,
-  // no typing happens so the verification never fires and the submit button
-  // stays disabled forever. Verify the prefilled number automatically.
+  // Session resume: a returning user's saved profile prefills the Aadhaar, and no typing
+  // happens, so the field is populated here. It is NOT validated — a prefilled number
+  // still has to go through DigiLocker before the validate call is allowed to run.
   React.useEffect(() => {
     const prefilled = String(formData?.aadhaarNumber || "").replace(/\D/g, "");
-    if (prefilled.length === 12 && aadhaarStatus === 'idle') {
+    if (prefilled.length === 12) {
       setValue("aadhaarNumber", prefilled, { shouldValidate: true });
-      verifyAadhaarNumber(prefilled);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData?.aadhaarNumber, verifyAadhaarNumber]);
+  }, [formData?.aadhaarNumber]);
+
+  // Aadhaar verification through DigiLocker. Its own submit, separate from the
+  // application submit at the bottom of the form — the user verifies the number here and
+  // only then goes on to file the application.
+  const handleDigilockerSubmit = async () => {
+    const digits = String(watch("aadhaarNumber") || "").replace(/\D/g, "");
+    if (digits.length !== 12) return;
+
+    // Taken BEFORE the await: window.open is only permitted while the click is still
+    // being handled, and awaiting the backend first would spend that gesture and get the
+    // popup blocked. It opens empty and is pointed at the URL once we have one.
+    const popup = openConsentPopup();
+    digilockerPopupRef.current = popup;
+    setDigilockerPopup(popup);
+    digilockerAadhaarRef.current = digits;
+
+    setIsRequestingDigilocker(true);
+    try {
+      const session = await fetchDigilockerSession(digits);
+      if (!session) {
+        popup?.close();
+        digilockerPopupRef.current = null;
+        setDigilockerPopup(null);
+        toast.error("Could not open DigiLocker right now. Please try again.");
+        return;
+      }
+
+      steerPopupTo(popup, session.url);
+      setDigilockerSession(session);
+
+      if (!popup) {
+        toast.error("Please allow pop-ups for this site, then use the Open DigiLocker button.");
+      }
+    } finally {
+      setIsRequestingDigilocker(false);
+    }
+  };
+
+  const handleDigilockerCancel = () => {
+    digilockerPopupRef.current?.close();
+    digilockerPopupRef.current = null;
+    setDigilockerPopup(null);
+    setDigilockerSession(null);
+  };
+
+  // Re-opens the consent window from a fresh click, so the popup blocker allows it. The
+  // URL is already known here, so it can be opened and pointed in one go.
+  const handleDigilockerReopen = () => {
+    if (!digilockerSession) return;
+
+    const existing = digilockerPopupRef.current;
+    if (existing && !existing.closed) {
+      existing.focus();
+      return;
+    }
+
+    const popup = openConsentPopup();
+    digilockerPopupRef.current = popup;
+    setDigilockerPopup(popup);
+
+    if (!popup) {
+      toast.error("Pop-ups are blocked. Allow them for this site and try again.");
+      return;
+    }
+    steerPopupTo(popup, digilockerSession.url);
+  };
+
+  // The one place the Aadhaar validate endpoint is allowed to run.
+  //
+  // On a DigiLocker failure it is NOT called — the number never reaches the validate
+  // endpoint unless the customer actually completed consent. This is deliberate: consent
+  // is the gate, and a failed or abandoned DigiLocker leaves the Aadhaar unvalidated.
+  const handleDigilockerComplete = async (status: DigilockerStatus, profile?: AadhaarProfile) => {
+    // The consent window has served its purpose either way.
+    digilockerPopupRef.current?.close();
+    digilockerPopupRef.current = null;
+    setDigilockerPopup(null);
+    setDigilockerSession(null);
+
+    if (status !== "success") {
+      console.log('[DigiLocker] failed — skipping the Aadhaar validate call');
+      setDigilockerStatus('failed');
+      setAadhaarStatus('idle');
+      setAadhaarError(null);
+      verifiedAadhaarRef.current = null;
+      toast.error("DigiLocker verification was not completed. Please try again.");
+      return;
+    }
+
+    // Consent succeeded, so the validate call is now allowed. 'verified' is held back
+    // until it answers — announcing it earlier would show a green "verified" panel while
+    // the call is still in flight, and have to take it back if the number is rejected.
+    // Auto-fill from the DigiLocker record before validating, so the name on the form is
+    // the name DigiLocker returned rather than anything typed by hand.
+    if (profile) {
+      console.log('[DigiLocker] auto-filling from profile:', profile);
+
+      // The backend may write the Aadhaar number before the name, so the name is only
+      // filled when it actually came back.
+      if (profile.name) {
+        setValue("aadhaarName", profile.name, { shouldValidate: true });
+
+        // Only fill the applicant name if it is still blank — a name already typed is the
+        // user's own entry and the mismatch check downstream exists to compare the two.
+        const [first = "", ...rest] = profile.name.trim().split(/\s+/);
+        if (!String(watch("firstName") || "").trim()) {
+          setValue("firstName", first, { shouldValidate: true });
+        }
+        if (rest.length && !String(watch("lastName") || "").trim()) {
+          setValue("lastName", rest[rest.length - 1], { shouldValidate: true });
+        }
+      }
+
+      if (profile.dob && !String(watch("dateOfBirth") || "").trim()) {
+        const iso = new Date(profile.dob);
+        if (!Number.isNaN(iso.getTime())) {
+          setValue("dateOfBirth", iso.toISOString().split("T")[0], { shouldValidate: true });
+        }
+      }
+
+      const gender = (profile.gender || "").toUpperCase();
+      if ((gender === "MALE" || gender === "FEMALE") && !watch("gender")) {
+        setValue("gender", gender === "MALE" ? "Male" : "Female", { shouldValidate: true });
+      }
+    }
+
+    // The profile's own number wins — it is what DigiLocker actually consented to.
+    const digits =
+      (profile?.aadhaarNumber || "").replace(/\D/g, "") ||
+      digilockerAadhaarRef.current ||
+      String(watch("aadhaarNumber") || "").replace(/\D/g, "");
+
+    if (digits && digits !== String(watch("aadhaarNumber") || "").replace(/\D/g, "")) {
+      setValue("aadhaarNumber", digits, { shouldValidate: true });
+    }
+
+    console.log('[DigiLocker] success — now validating Aadhaar');
+
+    const ok = await verifyAadhaarNumber(digits);
+    if (ok) {
+      setDigilockerStatus('verified');
+      toast.success("Aadhaar verified through DigiLocker.");
+      return;
+    }
+
+    // Consent went through but the number was rejected by validate, so this is not a
+    // verified Aadhaar and the form must not proceed on it.
+    setDigilockerStatus('failed');
+    toast.error(aadhaarError || "Aadhaar could not be validated. Please try again.");
+  };
 
   const handleAadhaarChange = async (val: string, fieldOnChange: (v: string) => void) => {
     const digits = val.replace(/\D/g, '');
@@ -264,12 +425,24 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
       verifiedAadhaarRef.current = null;
       setAadhaarStatus('idle');
       setAadhaarError(null);
+      // A DigiLocker consent belongs to the number it was raised for, so editing the
+      // number invalidates it.
+      setDigilockerStatus('idle');
       return;
     }
 
-    // Trigger real-time validation as soon as all 12 digits are entered
-    await verifyAadhaarNumber(digits);
+    // No validate call here. The Aadhaar is only validated once DigiLocker has come back
+    // successful — see handleDigilockerComplete. Typing 12 digits just unlocks the
+    // DigiLocker button.
+    setAadhaarStatus('idle');
+    setAadhaarError(null);
+    setDigilockerStatus('idle');
   };
+
+  // DigiLocker is now the first step, so the button only needs a complete number — not a
+  // validate result, which by design cannot exist yet.
+  const hasTwelveAadhaarDigits =
+    String(watch("aadhaarNumber") || "").replace(/\D/g, "").length === 12;
 
   return (
     <form onSubmit={handleSubmit(onValidSubmit)} className="space-y-6 form-fade-in pb-4">
@@ -469,12 +642,12 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
                     Verifying Aadhaar...
                   </div>
                 )}
-                {aadhaarStatus === 'valid' && (
+                {/* {aadhaarStatus === 'valid' && (
                   <div className="flex items-center gap-2 mt-2 text-sm text-green-600 font-medium">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
                     Aadhaar verified successfully!
                   </div>
-                )}
+                )} */}
               </div>
             );
           }}
@@ -484,6 +657,45 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
           ? <p className="text-red-500 text-sm mt-1">{aadhaarError}</p>
           : errors.aadhaarNumber && <p className="text-red-500 text-sm mt-1">{errors.aadhaarNumber.message}</p>
         }
+
+        {/* Aadhaar verification through DigiLocker. type="button" is load-bearing: this
+            sits inside the application form, and a bare <button> would submit it. */}
+        <div className="mt-3">
+          {digilockerStatus === 'verified' ? (
+            <div className="flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-3">
+              <ShieldCheck className="w-5 h-5 text-green-600 shrink-0" />
+              <p className="text-sm font-medium text-green-700">
+                Aadhaar verified through DigiLocker
+              </p>
+            </div>
+          ) : (
+            <>
+              <Button
+                type="button"
+                onClick={handleDigilockerSubmit}
+                disabled={!hasTwelveAadhaarDigits || isRequestingDigilocker}
+                className="w-full h-12 rounded-xl bg-[#1c2b4f] hover:bg-[#16223f] text-white text-base font-bold shadow-sm transition-all disabled:opacity-50"
+              >
+                {isRequestingDigilocker ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="w-4 h-4 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />
+                    Opening DigiLocker...
+                  </span>
+                ) : (
+                  <span className="flex items-center justify-center gap-2">
+                    <ShieldCheck className="w-4 h-4" />
+                    {digilockerStatus === 'failed' ? 'Retry DigiLocker verification' : 'Verify Aadhaar with DigiLocker'}
+                  </span>
+                )}
+              </Button>
+              <p className="text-[11px] text-gray-500 mt-2 text-center">
+                {hasTwelveAadhaarDigits
+                  ? 'Submit to open DigiLocker and give consent for your Aadhaar.'
+                  : 'Enter all 12 digits of your Aadhaar to continue.'}
+              </p>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="w-full mt-4">
@@ -629,7 +841,7 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
         <Button
           type="submit"
           className="w-full bg-[#c81e1e] hover:bg-red-700 text-white h-14 rounded-xl text-lg font-bold shadow-md transition-all"
-          disabled={isLoading || !isValid || isAgeBlocked || aadhaarStatus === 'checking' || aadhaarStatus === 'invalid' || aadhaarStatus === 'idle'}
+          disabled={isLoading || !isValid || isAgeBlocked || digilockerStatus !== 'verified' || aadhaarStatus !== 'valid'}
         >
           {isLoading ? "Submitting..." : "Review & Submit Application"}
         </Button>
@@ -639,6 +851,16 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
           </span>
         </div>
       </div>
+
+      {/* Lives here rather than in the page, so both the signup and apply-now flows get
+          it from the one component that owns the Aadhaar field. */}
+      <DigilockerModal
+        session={digilockerSession}
+        popup={digilockerPopup}
+        onClose={handleDigilockerCancel}
+        onComplete={handleDigilockerComplete}
+        onReopen={handleDigilockerReopen}
+      />
 
       {/* Age eligibility alert — age is derived from the DOB on the verified PAN/Aadhaar */}
       <Dialog open={showAgeAlert} onOpenChange={setShowAgeAlert}>
