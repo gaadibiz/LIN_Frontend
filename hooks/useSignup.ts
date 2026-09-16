@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useCallback } from 'react';
 import { useScrollToTop } from './useScrollToTop';
 import { useRouter } from 'next/navigation';
@@ -42,7 +43,8 @@ const initialFormData: SignupFormData = {
   personalDetails: {
     panNumber: "", firstName: "", lastName: undefined, dateOfBirth: "", gender: "Male" as "Male" | "Female",
     middleName: "", email: "", aadhaarNumber: "", aadhaarName: "", panImage: undefined as unknown as File, aadhaarImage: undefined as unknown as File, salarySlipImage: undefined as unknown as File, bankStatementImage: undefined as unknown as File,
-    consentOne: true, consentTwo: true
+    consentOne: true, consentTwo: true,
+    addressLine: "", state: "", city: "", pinCode: ""
   },
   basicDetails: {
     loanAmount: 0, purposeOfLoan: "",
@@ -66,6 +68,15 @@ const initialFormData: SignupFormData = {
     location: ""
   }
 };
+
+// The optional address fields collected on the personal-details step. Every one of them
+// may be absent — the applicant is allowed to skip the whole block.
+interface PersonalAddressFields {
+  addressLine?: string;
+  state?: string;
+  city?: string;
+  pinCode?: string;
+}
 
 export function useSignup(): UseSignupReturn {
   const [currentStep, setCurrentStep] = useState(1);
@@ -95,6 +106,30 @@ export function useSignup(): UseSignupReturn {
     // submitKYC is the ONLY call in the app that carries the `submitted` flag — the
     // eligibility check, OTP verification, user registration and document upload all send
     // no such field, so the backend has a single unambiguous "application filed" signal.
+    // Folds the optional current-address block from the personal-details step into the
+    // values the application is built from, so it reaches the backend on the KYC call
+    // (POST /api/kyc) — currentAddress / currentCity / currentState / currentPostalCode.
+    //
+    // Every field may be blank, so each only overrides what the eligibility step already
+    // collected when the applicant actually typed something: a skipped field must never
+    // blank out a value that is already known.
+    //
+    // Both flows that render Step2PersonalDetails go through here — signup (case 2) and
+    // apply-now (case 7) — so the address is sent from either one.
+    const withCurrentAddress = (
+      basicDetails: unknown,
+      personalDetails: PersonalAddressFields | undefined,
+    ) => {
+      const base = (basicDetails ?? {}) as Record<string, unknown>;
+      return {
+        ...base,
+        currentAddress: personalDetails?.addressLine || base.currentAddress || "",
+        city: personalDetails?.city || base.city || "",
+        state: personalDetails?.state || base.state || "",
+        pinCode: personalDetails?.pinCode || base.pinCode || "",
+      };
+    };
+
     const createApplication = async (basicDetails: any, aadhaarNumber?: string) => {
       // The KYC API is only ever hit with a validated Aadhaar in hand. Every caller
       // runs verifyAndSaveAadhaar first; this is the structural backstop so a future
@@ -132,6 +167,8 @@ export function useSignup(): UseSignupReturn {
         currentAddress: basicDetails.currentAddress || "",
         currentAddressType: basicDetails.currentAddressType || "Rented",
         permanentAddress: basicDetails.permanentAddress || "",
+        currentCity: basicDetails.city || "",
+        currentState: basicDetails.state || "",
         currentPostalCode: basicDetails.pinCode || "",
         loanAmount: basicDetails.loanAmount || 0,
         purpose: basicDetails.purposeOfLoan || "Other",
@@ -271,7 +308,10 @@ export function useSignup(): UseSignupReturn {
 
           // === STAGE 3: Create the application (final submit of the signup flow) ===
           try {
-            await createApplication(formData.basicDetails, verifiedAadhaar2);
+            await createApplication(
+              withCurrentAddress(formData.basicDetails, data),
+              verifiedAadhaar2,
+            );
           } catch (kycErr) {
             // A blocked application, or a missing Aadhaar, is a hard stop — unlike the
             // sync failures this swallows.
@@ -342,8 +382,13 @@ export function useSignup(): UseSignupReturn {
           );
 
           // Final step of the apply-now / dashboard flow: the bank statement is in hand, so
-          // the application gets created and submitted in one go.
-          await createApplication(formData.basicDetails, verifiedAadhaar4);
+          // the application gets created and submitted in one go. `data` here is the
+          // document upload, so the address comes from the personal details already saved
+          // on the form — a no-op when this user never filled that block in.
+          await createApplication(
+            withCurrentAddress(formData.basicDetails, formData.personalDetails),
+            verifiedAadhaar4,
+          );
           await apiClient.submitDocuments(documentFormDataSeparate);
           return true;
 
@@ -418,7 +463,10 @@ export function useSignup(): UseSignupReturn {
           const verifiedAadhaar7 = await verifyAndSaveAadhaar(data.aadhaarNumber);
 
           // Create the application — the profile is in place and the form is complete
-          await createApplication(formData.basicDetails, verifiedAadhaar7);
+          await createApplication(
+            withCurrentAddress(formData.basicDetails, data),
+            verifiedAadhaar7,
+          );
 
           // Upload Documents
           try {

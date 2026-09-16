@@ -14,7 +14,9 @@
 
 import { getSubmittedApplications } from "./application-status";
 import {
+  REAPPLY_COOLDOWN_DAYS,
   getReapplyBlock,
+  isRejectedApplication,
   reapplyBlockMessage,
   type ReapplyBlock,
   type RejectableApplication,
@@ -51,6 +53,177 @@ const REPAYABLE_STATUSES = new Set(["DISBURSED", "COMPLETED"]);
 export function isRepayableApplication(application: GateApplication | null | undefined): boolean {
   if (!application) return false;
   return REPAYABLE_STATUSES.has(String(application.status ?? "").trim().toUpperCase());
+}
+
+// A loan that ran its full course and is finished. Reloan is offered on the strength of a
+// repaid loan, so "approved" and "disbursed" do not count: the money is still outstanding
+// and that case is not yet evidence of anything. An applicant with no finished loan is
+// offered Reapply instead — same form, but it is a fresh application, not a repeat one.
+const COMPLETED_STATUSES = new Set(["COMPLETED", "CLOSED", "SETTLED"]);
+
+export function isCompletedApplication(application: GateApplication | null | undefined): boolean {
+  if (!application) return false;
+  return COMPLETED_STATUSES.has(String(application.status ?? "").trim().toUpperCase());
+}
+
+// True when the profile carries at least one finished loan, i.e. the user qualifies for Reloan.
+export function hasCompletedApplication(applications: unknown): boolean {
+  return getSubmittedApplications<GateApplication>(applications).some(isCompletedApplication);
+}
+
+// ---------------------------------------------------------------------------
+// Reapply / Reloan eligibility
+// ---------------------------------------------------------------------------
+// The dashboard offers both, side by side, and they are NOT the same rule:
+//
+//   Reapply — file another application after waiting out the gap. Allowed once 15 days
+//             have passed since the last application was filed (and, as before, once any
+//             rejection cooldown has expired).
+//   Reloan  — take a fresh loan on the strength of a finished one. Allowed only when the
+//             customer has NOTHING still in process: every application they have filed
+//             must have reached a completed status. One undecided application anywhere
+//             blocks it, however many completed ones sit alongside.
+//
+// Both are the frontend half of the rule. The backend must enforce the same thing for
+// anything that bypasses this UI.
+
+export const REAPPLY_AFTER_DAYS = 15;
+
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Why a customer may not reapply or reloan yet.
+ *
+ * Carries the applications behind the decision, not just a sentence, so the dashboard can
+ * show it as a full panel — each application with its status and the date it was filed —
+ * rather than a one-line alert the customer cannot act on.
+ */
+export interface EligibilityBlock {
+  kind: "reapply-wait" | "cooldown" | "in-process" | "no-completed-loan";
+  title: string;
+  message: string;
+  // The applications that explain the block, newest first. Empty when nothing is pending.
+  applications: GateApplication[];
+  // Set for the two waits: when the customer becomes eligible, and how long that is.
+  availableFrom?: Date;
+  daysRemaining?: number;
+}
+
+const parseDate = (value: unknown): Date | null => {
+  if (!value) return null;
+  const parsed = new Date(String(value));
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+export function formatApplicationDate(date: Date): string {
+  return date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+// Newest first, so the panel lists the most recent application at the top.
+const byNewest = (applications: GateApplication[]): GateApplication[] =>
+  [...applications].sort(
+    (a, b) =>
+      (parseDate(b.createdAt)?.getTime() ?? 0) - (parseDate(a.createdAt)?.getTime() ?? 0),
+  );
+
+// The application the customer filed most recently, or null if they never filed one.
+export function getLatestApplication(applications: unknown): GateApplication | null {
+  const submitted = byNewest(getSubmittedApplications<GateApplication>(applications));
+  return submitted[0] ?? null;
+}
+
+export function getApplicationDate(application: GateApplication | null | undefined): Date | null {
+  return parseDate(application?.createdAt);
+}
+
+const daysUntil = (target: Date, now: Date): number =>
+  // Part of a day still counts as a day left to wait, so this never reads "0 days".
+  Math.max(1, Math.ceil((target.getTime() - now.getTime()) / DAY_IN_MS));
+
+/**
+ * Why the customer may not reapply yet, or null when they may.
+ *
+ * Two independent waits, both 15 days: since the last application was filed, and — from
+ * the existing cooldown — since a rejection. Whichever is still running is reported.
+ */
+export function getReapplyEligibilityBlock(
+  applications: unknown,
+  now: Date = new Date(),
+): EligibilityBlock | null {
+  const cooldown = getReapplyBlock(applications, now);
+  if (cooldown) {
+    return {
+      kind: "cooldown",
+      title: `You can apply again after ${REAPPLY_COOLDOWN_DAYS} days`,
+      message: reapplyBlockMessage(cooldown),
+      applications: byNewest(
+        getSubmittedApplications<GateApplication>(applications).filter(isRejectedApplication),
+      ),
+      availableFrom: cooldown.reapplyFrom,
+      daysRemaining: cooldown.daysRemaining,
+    };
+  }
+
+  const latest = getLatestApplication(applications);
+  const appliedOn = getApplicationDate(latest);
+  if (!latest || !appliedOn) return null; // Never applied: nothing to wait for.
+
+  const availableFrom = new Date(appliedOn.getTime() + REAPPLY_AFTER_DAYS * DAY_IN_MS);
+  if (now.getTime() >= availableFrom.getTime()) return null;
+
+  const daysRemaining = daysUntil(availableFrom, now);
+  return {
+    kind: "reapply-wait",
+    title: `You can reapply after ${REAPPLY_AFTER_DAYS} days`,
+    message:
+      `You submitted your last loan application on ${formatApplicationDate(appliedOn)}. `
+      + `A new application can be submitted ${REAPPLY_AFTER_DAYS} days after the previous one, `
+      + `so you can reapply from ${formatApplicationDate(availableFrom)}.`,
+    applications: [latest],
+    availableFrom,
+    daysRemaining,
+  };
+}
+
+/**
+ * Why the customer may not take a reloan, or null when they may.
+ *
+ * Every application has to be finished — one still in process blocks it, whether they
+ * have one application or several. A customer with no completed loan has nothing to
+ * reloan against and is pointed at Reapply instead.
+ */
+export function getReloanEligibilityBlock(applications: unknown): EligibilityBlock | null {
+  const submitted = getSubmittedApplications<GateApplication>(applications);
+  const inProcess = byNewest(submitted.filter(isInProcessApplication));
+
+  if (inProcess.length > 0) {
+    const many = inProcess.length > 1;
+    return {
+      kind: "in-process",
+      title: many
+        ? "Your loan applications are still in process"
+        : "Your loan application is still in process",
+      message: many
+        ? `You have ${inProcess.length} loan applications still being processed. A reloan can `
+          + "be taken once all of them have been completed."
+        : "Our team is still processing the loan application you have already submitted. "
+          + "A reloan can be taken once it has been completed.",
+      applications: inProcess,
+    };
+  }
+
+  if (!submitted.some(isCompletedApplication)) {
+    return {
+      kind: "no-completed-loan",
+      title: "A reloan needs a completed loan",
+      message:
+        "A reloan is available once you have completed a loan with us. Until then, please "
+        + "use Reapply to submit a new loan application.",
+      applications: byNewest(submitted).slice(0, 1),
+    };
+  }
+
+  return null;
 }
 
 export function isInProcessApplication(application: GateApplication | null | undefined): boolean {

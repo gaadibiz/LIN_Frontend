@@ -8,7 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { personalDetailsSchema, type PersonalDetailsForm } from "@/lib/signup-schemas"
-import { Lock, User, Mail, FileText, UploadCloud, FileBadge2, AlertTriangle, ShieldCheck } from "lucide-react"
+import { Lock, User, Mail, FileText, UploadCloud, FileBadge2, AlertTriangle, ShieldCheck, MapPin } from "lucide-react"
 import { FileUpload } from "../ui/file-upload"
 import { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator } from "@/components/ui/input-otp"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
@@ -708,6 +708,67 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
           <Input {...register("aadhaarName")} className="pl-10 h-11 border-gray-300 shadow-sm focus-visible:ring-blue-500" placeholder="Enter exactly as printed on Aadhaar" />
         </div>
         {errors.aadhaarName && <p className="text-red-500 text-sm mt-1">{errors.aadhaarName.message}</p>}
+      </div>
+
+      {/* Current address details — every field here is optional. The applicant can skip the
+          whole section and still submit; it exists so the address is on file early when
+          they do fill it in. Nothing in this block is wired into the submit button's
+          guard. It is sent to the KYC API (POST /api/kyc) as currentAddress / currentCity /
+          currentState / currentPostalCode — see withCurrentAddress in hooks/useSignup.ts. */}
+      <div className="pt-4 border-t border-gray-100">
+        <div className="flex items-start space-x-3 mb-4">
+          <MapPin className="w-6 h-6 text-blue-600 mt-1" />
+          <div>
+            <h2 className="text-[17px] font-bold text-[#1c2b4f]">
+              Current address details <span className="text-gray-400 font-medium text-[13px]">(optional)</span>
+            </h2>
+            <p className="text-xs text-gray-500 font-medium">You can skip this and add it later.</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="md:col-span-2">
+            <label className="block text-sm font-bold text-[#1c2b4f] mb-2">Address</label>
+            <Input
+              {...register("addressLine")}
+              className="h-11 border-gray-300 shadow-sm focus-visible:ring-blue-500"
+              placeholder="House / flat no., street, landmark"
+            />
+            {errors.addressLine && <p className="text-red-500 text-sm mt-1">{errors.addressLine.message as string}</p>}
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-[#1c2b4f] mb-2">State</label>
+            <Input
+              {...register("state")}
+              className="h-11 border-gray-300 shadow-sm focus-visible:ring-blue-500"
+              placeholder="Enter your state"
+            />
+            {errors.state && <p className="text-red-500 text-sm mt-1">{errors.state.message as string}</p>}
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-[#1c2b4f] mb-2">City</label>
+            <Input
+              {...register("city")}
+              className="h-11 border-gray-300 shadow-sm focus-visible:ring-blue-500"
+              placeholder="Enter your city"
+            />
+            {errors.city && <p className="text-red-500 text-sm mt-1">{errors.city.message as string}</p>}
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-[#1c2b4f] mb-2">Pincode</label>
+            <Input
+              {...register("pinCode")}
+              inputMode="numeric"
+              maxLength={6}
+              className="h-11 border-gray-300 shadow-sm focus-visible:ring-blue-500"
+              placeholder="6-digit pincode"
+            />
+            {errors.pinCode && <p className="text-red-500 text-sm mt-1">{errors.pinCode.message as string}</p>}
+          </div>
+        </div>
       </div>
 
       {/* Document Upload section */}

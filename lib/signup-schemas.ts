@@ -103,6 +103,16 @@ export const personalDetailsSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
   aadhaarNumber: z.string().length(12, "oops invalid Aadhaar number").regex(/^\d{12}$/, "oops invalid Aadhaar number"),
   aadhaarName: z.string().min(2, "Name as per Aadhaar is required"),
+  // Optional address details, asked here so the applicant can supply them up front
+  // instead of only at the later KYC step. Every one of these may be left blank — an
+  // empty value must never hold up the application, so each rule only fires on input
+  // the applicant actually typed.
+  addressLine: z.string().max(200, "Address must be less than 200 characters").optional(),
+  state: z.string().max(50, "State must be less than 50 characters").optional(),
+  city: z.string().max(50, "City must be less than 50 characters").optional(),
+  pinCode: z
+    .union([z.literal(""), z.string().regex(/^\d{6}$/, "Pin code must be 6 digits")])
+    .optional(),
   panImage: z.instanceof(File, { message: "PAN image is required" }),
   aadhaarImage: z.instanceof(File, { message: "Aadhaar image is required" }),
   salarySlipImage: z.instanceof(File).optional(),

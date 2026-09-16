@@ -10,10 +10,13 @@ import {
   getApplicationBlock,
   formatApplicationStatus,
   isRepayableApplication,
+  getReapplyEligibilityBlock,
+  getReloanEligibilityBlock,
   IN_PROCESS_LABEL,
   type ApplicationBlock,
 } from "@/lib/application-gate";
 import { ApplicationBlockedNotice } from "@/components/signup/ApplicationBlockedNotice";
+import { EligibilityNotice } from "@/components/dashboard/EligibilityNotice";
 
 import {
   LayoutDashboard,
@@ -36,6 +39,7 @@ import {
   ChevronDown,
   FileX2,
   Bookmark,
+  RefreshCw,
 } from "lucide-react";
 import { useSignup } from "@/hooks/useSignup";
 import { useScrollToTop } from "@/hooks/useScrollToTop";
@@ -384,6 +388,12 @@ function ReloanFlow() {
   );
 }
 
+// The two ways back into the loan form. They sit side by side in the sidebar and are
+// always both visible — what differs is who is allowed to use them, and the alert shown
+// to whoever is not (see reapplyBlock / reloanBlock below).
+const REAPPLY_TAB = "Reapply";
+const RELOAN_TAB = "Reloan";
+
 function DashboardContent() {
   const router = useRouter();
   const { getLinkWithRef } = useAffiliate();
@@ -415,6 +425,13 @@ function DashboardContent() {
 
   const [missingDocs, setMissingDocs] = React.useState<string[]>([]);
   const [hasApplication, setHasApplication] = React.useState(false);
+  // Reloan is earned by a finished loan; Reapply by waiting out the 15-day gap. Both rules
+  // are computed from the applications themselves, so the raw list is kept here. It stays
+  // null until the profile arrives, which is what tells the two tabs "not known yet".
+  const [loanApplications, setLoanApplications] = React.useState<unknown[] | null>(null);
+  // Reference numbers in the eligibility notice are built from this, exactly as Loan
+  // History builds its own — the same application must read the same in both places.
+  const [profileAadhaar, setProfileAadhaar] = React.useState<string>("");
   const [isProfileComplete, setIsProfileComplete] = React.useState(false);
   const [uploadFiles, setUploadFiles] = React.useState<
     Record<string, File | null>
@@ -428,14 +445,36 @@ function DashboardContent() {
     [loanHistoryData],
   );
 
+  // Tabs are selected by `id`, never by the label, so a label may change with the profile
+  // without a selected tab ever losing its match.
   const sidebarItems = [
-    { name: "Dashboard", icon: <LayoutDashboard size={20} /> },
-    { name: "Track loan", icon: <Search size={20} /> },
-    { name: "Reloan", icon: <PlusCircle size={20} /> },
-    { name: "Repay loan", icon: <Wallet size={20} /> },
-    { name: "Loan history", icon: <History size={20} /> },
-    { name: "Support", icon: <Headphones size={20} /> },
+    { id: "Dashboard", name: "Dashboard", icon: <LayoutDashboard size={20} /> },
+    { id: "Track loan", name: "Track loan", icon: <Search size={20} /> },
+    { id: REAPPLY_TAB, name: "Reapply", icon: <RefreshCw size={20} /> },
+    { id: RELOAN_TAB, name: "Reloan", icon: <PlusCircle size={20} /> },
+    { id: "Repay loan", name: "Repay loan", icon: <Wallet size={20} /> },
+    { id: "Loan history", name: "Loan history", icon: <History size={20} /> },
+    { id: "Support", name: "Support", icon: <Headphones size={20} /> },
   ];
+
+  // Why this customer may not reapply / reloan, or null when they may. Both are computed
+  // from the applications on the profile, and stay null while it is still being fetched —
+  // the pane shows a loading line then, rather than a form or a refusal it cannot justify.
+  const reapplyBlock = React.useMemo(
+    () => (loanApplications ? getReapplyEligibilityBlock(loanApplications) : null),
+    [loanApplications],
+  );
+  const reloanBlock = React.useMemo(
+    () => (loanApplications ? getReloanEligibilityBlock(loanApplications) : null),
+    [loanApplications],
+  );
+
+  // Reapply and Reloan are always clickable and always open. An ineligible customer is not
+  // stopped at the click with an alert — the tab opens and the pane explains why, with the
+  // applications, their status and the dates behind the decision (see EligibilityNotice).
+  const openTab = (tabId: string) => {
+    setActiveTab(tabId);
+  };
 
   // Initial empty states
   const [personalDetails, setPersonalDetails] = React.useState([
@@ -620,6 +659,10 @@ function DashboardContent() {
           const missing = requiredTypes.filter((type) => !(byType[type] > 0));
 
           setHasApplication(activeApp);
+          setLoanApplications(
+            Array.isArray(p.loanApplications) ? p.loanApplications : [],
+          );
+          setProfileAadhaar(p.aadhaarVerification?.aadhaarNumber || "");
           setIsProfileComplete(profileComplete);
           setMissingDocs(missing);
         }
@@ -1251,7 +1294,10 @@ function DashboardContent() {
                       </div>
                     </td>
                     <td className="px-8 py-6 text-right">
-                      <button className="inline-flex items-center gap-2 text-red-500 font-bold text-sm bg-red-50 hover:bg-red-500 hover:text-white px-5 py-2.5 rounded-xl transition-all shadow-sm active:scale-95 group/btn">
+                      <button
+                        onClick={() => openTab(REAPPLY_TAB)}
+                        className="inline-flex items-center gap-2 text-red-500 font-bold text-sm bg-red-50 hover:bg-red-500 hover:text-white px-5 py-2.5 rounded-xl transition-all shadow-sm active:scale-95 group/btn"
+                      >
                         <span>Reapply</span>
                         <ArrowUpRight
                           size={14}
@@ -1344,16 +1390,45 @@ function DashboardContent() {
     </div>
   );
 
-  const renderReloanContent = () => (
-    <div className="max-w-5xl space-y-10">
-      <div className="flex items-center justify-between">
-        <h2 className="text-[28px] font-extrabold text-[#EF4444] tracking-tight">
-          Reloan
-        </h2>
+  // Both tabs open the same form — the heading says which of the two the customer is doing.
+  // When they are not eligible the form is replaced, in this same pane, by the reason: the
+  // applications holding them up, each with its status and the date it was filed.
+  const renderApplyAgainContent = (mode: typeof REAPPLY_TAB | typeof RELOAN_TAB) => {
+    const isReloan = mode === RELOAN_TAB;
+    const block = isReloan ? reloanBlock : reapplyBlock;
+
+    return (
+      <div className="max-w-5xl space-y-10">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-[28px] font-extrabold text-[#EF4444] tracking-tight">
+            {isReloan ? "Reloan" : "Reapply"}
+          </h2>
+          <p className="text-[14px] text-gray-500 font-medium">
+            {block
+              ? isReloan
+                ? "Here is where your reloan stands."
+                : "Here is where your next application stands."
+              : isReloan
+                ? "You have completed your previous loan — apply for your next one below."
+                : "Start a fresh loan application. Your verified details are carried over."}
+          </p>
+        </div>
+
+        {!loanApplications ? (
+          // The profile has not landed yet, so eligibility is genuinely unknown. Showing the
+          // form here would invite a customer into something they may not be allowed to
+          // submit; showing a refusal would be a guess. So: neither, until we know.
+          <div className="py-16 text-center text-sm font-medium text-gray-400">
+            Loading your loan details…
+          </div>
+        ) : block ? (
+          <EligibilityNotice block={block} aadhaarNumber={profileAadhaar} />
+        ) : (
+          <ReloanFlow />
+        )}
       </div>
-      <ReloanFlow />
-    </div>
-  );
+    );
+  };
 
   // Access check still running, or it failed and a redirect is on its way. Either way
   // the dashboard itself must not be on screen, not even for a frame.
@@ -1374,12 +1449,12 @@ function DashboardContent() {
             <nav className="space-y-1">
               {sidebarItems.map((item) => (
                 <button
-                  key={item.name}
+                  key={item.id}
                   onClick={() => {
-                    setActiveTab(item.name);
+                    openTab(item.id);
                   }}
                   className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl transition-all font-medium ${
-                    activeTab === item.name
+                    activeTab === item.id
                       ? "bg-[#EF4444] text-white shadow-lg shadow-red-200"
                       : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
                   }`}
@@ -1415,8 +1490,8 @@ function DashboardContent() {
             renderDashboardContent()
           ) : activeTab === "Track loan" ? (
             renderTrackLoanContent()
-          ) : activeTab === "Reloan" ? (
-            renderReloanContent()
+          ) : activeTab === REAPPLY_TAB || activeTab === RELOAN_TAB ? (
+            renderApplyAgainContent(activeTab)
           ) : activeTab === "Repay loan" ? (
             renderRepayLoanContent()
           ) : activeTab === "Loan history" ? (
