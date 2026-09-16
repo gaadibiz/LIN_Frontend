@@ -282,12 +282,15 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
 
     setIsRequestingDigilocker(true);
     try {
-      const session = await fetchDigilockerSession(digits);
+      const { session, error } = await fetchDigilockerSession(digits);
       if (!session) {
         popup?.close();
         digilockerPopupRef.current = null;
         setDigilockerPopup(null);
-        toast.error("Could not open DigiLocker right now. Please try again.");
+        // The backend's own wording when it gave one — "This Aadhaar number is already
+        // registered with another account." tells the user what to do; the generic line
+        // below does not, so it is only the fallback for a refusal with no reason.
+        toast.error(error || "Could not open DigiLocker right now. Please try again.");
         return;
       }
 

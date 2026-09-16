@@ -126,15 +126,43 @@ const URL_KEYS = ['url', 'link', 'redirectUrl', 'redirect_url', 'authUrl', 'auth
 const REQUEST_ID_KEYS = ['requestId', 'request_id', 'id', 'state', 'txnId', 'txn_id'];
 
 /**
+ * The reason a session could not be opened, in the backend's own words where it gave one.
+ *
+ * The backend rejects with a real explanation — "This Aadhaar number is already
+ * registered with another account.", for example — either as a non-2xx body (which
+ * apiClient re-throws as an Error carrying that message) or as a 200 whose body says
+ * `status: "error"`. Both are read here so the caller can show the actual reason instead
+ * of a generic "could not open DigiLocker" that tells the user nothing about what to fix.
+ */
+export interface DigilockerSessionResult {
+  session: DigilockerSession | null;
+  error?: string;
+}
+
+// A 200 body can still be a refusal: `{ status: "error", message: "..." }`.
+const readErrorMessage = (res: unknown): string | null => {
+  const root = asRecord(res);
+  const data = asRecord(root.data);
+  const status = asNonEmptyString(root.status) || asNonEmptyString(data.status);
+  const success = root.success ?? data.success;
+  const failed = status?.toLowerCase() === 'error' || success === false;
+  if (!failed) return null;
+  return asNonEmptyString(root.message) || asNonEmptyString(data.message) || null;
+};
+
+/**
  * Asks the backend to open a DigiLocker session for this Aadhaar number.
  *
- * Never throws — the caller shows a toast on null rather than breaking the form.
+ * Never throws — the caller shows the returned `error` (or its own fallback) rather than
+ * breaking the form.
  */
 export const fetchDigilockerSession = async (
   rawAadhaar: unknown,
-): Promise<DigilockerSession | null> => {
+): Promise<DigilockerSessionResult> => {
   const cleanAadhaar = String(rawAadhaar ?? '').replace(/\D/g, '');
-  if (cleanAadhaar.length !== 12) return null;
+  if (cleanAadhaar.length !== 12) {
+    return { session: null, error: 'Please enter a valid 12-digit Aadhaar number.' };
+  }
 
   try {
     // Debug log of the exact body POSTed to request-digilocker. The Aadhaar is shown in
@@ -148,6 +176,13 @@ export const fetchDigilockerSession = async (
     const res = await apiClient.requestDigilocker(cleanAadhaar, buildCallbackUrl());
     console.log('[DigiLocker] raw response', res);
 
+    // A 200 that says `status: "error"` is a refusal with a reason — surface it as-is.
+    const refusal = readErrorMessage(res);
+    if (refusal) {
+      console.error('DigiLocker: backend refused the request', refusal);
+      return { session: null, error: refusal };
+    }
+
     const url = readKey(res, URL_KEYS);
     const requestId = readKey(res, REQUEST_ID_KEYS);
     console.log('[DigiLocker] parsed url:', url);
@@ -155,7 +190,8 @@ export const fetchDigilockerSession = async (
 
     if (!url) {
       console.error('DigiLocker: no consent URL in response', res);
-      return null;
+      // No url and no stated reason: nothing useful to quote, so let the caller fall back.
+      return { session: null, error: asNonEmptyString(asRecord(res).message) || undefined };
     }
     if (!requestId) {
       // Recoverable: the OAuth `state` in the URL is the same value, so fall back to it
@@ -168,10 +204,16 @@ export const fetchDigilockerSession = async (
       requestId: requestId || readStateFromUrl(url) || '',
     };
     console.log('[DigiLocker] session ready, url going to popup:', session.url, session);
-    return session;
+    return { session };
   } catch (err) {
     console.error('DigiLocker initiation failed: ', err);
-    return null;
+    // apiClient throws an Error whose message IS the backend's `message` field for any
+    // non-2xx reply, so this is the rejection reason — not a generic network blip.
+    // Its own fallbacks ("HTTP error! status: 500") say nothing to a customer, so those
+    // are dropped and the caller's generic wording is used instead.
+    const message = err instanceof Error ? asNonEmptyString(err.message) : null;
+    const showable = message && !/^HTTP error! status:/i.test(message) ? message : undefined;
+    return { session: null, error: showable };
   }
 };
 
