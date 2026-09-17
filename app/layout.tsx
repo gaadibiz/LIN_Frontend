@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { outfit } from "@/lib/fonts";
 import { Toaster } from "sonner";
@@ -17,6 +17,24 @@ export const metadata: Metadata = {
     "Insta personal loan",
     "payday loan with low interest",
   ],
+  // The LoanINNeed mark, on every device. The files themselves live at the App Router's
+  // conventional paths — app/favicon.ico, app/icon.png, app/apple-icon.png — and Next.js
+  // would link them on its own; they are named here as well so an older browser that only
+  // looks for shortcut icon, and iOS, both get an explicit tag.
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon.png", type: "image/png", sizes: "512x512" },
+    ],
+    shortcut: ["/favicon.ico"],
+    apple: [{ url: "/apple-icon.png", sizes: "180x180", type: "image/png" }],
+  },
+};
+
+// Colours the browser chrome on Android, and the status bar of an installed PWA, in the
+// brand red the dashboard and buttons already use.
+export const viewport: Viewport = {
+  themeColor: "#EF4444",
 };
 
 export default function RootLayout({
