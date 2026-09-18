@@ -68,9 +68,19 @@ export const POPUP_NAME = 'digilocker-consent';
 export const openConsentPopup = (): Window | null => {
   if (typeof window === 'undefined') return null;
 
+  // Where to send the customer back to if the consent tab cannot close itself. Recorded
+  // here, while we are still standing on the application page and know what it was.
+  rememberReturnUrl();
+  // Any result left over from an earlier attempt must not settle this one.
+  resetResultChannel();
+
   const left = window.screenX + Math.max(0, (window.outerWidth - POPUP_W) / 2);
   const top = window.screenY + Math.max(0, (window.outerHeight - POPUP_H) / 2);
-  const features = `width=${POPUP_W},height=${POPUP_H},left=${left},top=${top},resizable=yes,scrollbars=yes`;
+  // Size features are meaningless on a phone — it opens a full tab whatever we ask for —
+  // and passing them makes some mobile browsers treat the call as a popup to block.
+  const features = isProbablyMobile()
+    ? ''
+    : `width=${POPUP_W},height=${POPUP_H},left=${left},top=${top},resizable=yes,scrollbars=yes`;
 
   const popup = window.open('', POPUP_NAME, features);
   if (!popup) {
@@ -328,6 +338,17 @@ const pollIntervalFor = (elapsedMs: number): number => {
   return 15_000;
 };
 
+// While the customer is inside the consent window this tab is hidden, so it polls more
+// slowly — but it must NOT stop. On a phone this backgrounded tab is the only thing
+// holding a handle to the consent tab, so it is the only thing that can close it and give
+// the customer their screen back. It can only do that once it knows consent succeeded,
+// and it can only know that by having kept looking. (Mobile browsers throttle background
+// timers, so the real gap is often longer than this — that is fine, it still lands.)
+const HIDDEN_POLL_INTERVAL_MS = 10_000;
+
+const isHidden = (): boolean =>
+  typeof document !== 'undefined' && document.visibilityState === 'hidden';
+
 /**
  * Polls the complete-profile endpoint until the Aadhaar details land.
  *
@@ -352,26 +373,57 @@ export const pollForAadhaarDetails = async (
       return null;
     }
 
-    // While the customer is inside the popup this tab is hidden, and nothing they do
-    // there is visible to us anyway. Skipping the read costs nothing: the modal checks
-    // immediately when the tab regains focus, which is the moment they come back.
-    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      continue;
-    }
-
     attempt += 1;
     const elapsed = Date.now() - startedAt;
-    console.log(`[DigiLocker] profile poll #${attempt} (next in ${pollIntervalFor(elapsed) / 1000}s)`);
+    const nextIn = isHidden() ? HIDDEN_POLL_INTERVAL_MS : pollIntervalFor(elapsed);
+    console.log(`[DigiLocker] profile poll #${attempt} (next in ${nextIn / 1000}s)`);
     onAttempt?.(attempt);
     const details = await checkAadhaarOnProfile();
     if (details) return details;
 
     if (isCancelled()) return null;
-    await new Promise((resolve) => setTimeout(resolve, pollIntervalFor(elapsed)));
+    await new Promise((resolve) => setTimeout(resolve, nextIn));
   }
 
   console.warn('[DigiLocker] profile polling timed out — no aadhaar details after 5 minutes');
+  return null;
+};
+
+/**
+ * Confirms an announced success against the profile before it is believed.
+ *
+ * The backend cannot build a redirect per request — it is configured with two FIXED urls,
+ * one for success and one for failure — so the announcement carries no requestId and
+ * nothing ties it to this attempt. Anything that reaches the success url announces
+ * success: a stale tab, a reload, a link opened twice.
+ *
+ * So the announcement is treated as a hint that it is worth looking, not as the result.
+ * `aadhaarVerification.verified` on the profile is the result, and it is the backend's own
+ * record of what DigiLocker actually returned.
+ *
+ * Polled rather than read once because the redirect can outrun the write: the browser may
+ * arrive here in the same moment the backend is still saving. Resolves null when the flag
+ * has not turned true within the window, which the caller treats as a failure.
+ */
+const CONFIRM_TIMEOUT_MS = 30_000;
+const CONFIRM_INTERVAL_MS = 2000;
+
+export const confirmAadhaarAfterSuccess = async (
+  isCancelled: () => boolean = () => false,
+): Promise<AadhaarProfile | null> => {
+  const deadline = Date.now() + CONFIRM_TIMEOUT_MS;
+
+  while (Date.now() < deadline) {
+    if (isCancelled()) return null;
+
+    const details = await checkAadhaarOnProfile();
+    if (details) return details;
+
+    if (isCancelled()) return null;
+    await new Promise((resolve) => setTimeout(resolve, CONFIRM_INTERVAL_MS));
+  }
+
+  console.warn('[DigiLocker] success was announced but the profile never confirmed it');
   return null;
 };
 
@@ -400,4 +452,193 @@ export const readCompletionMessage = (data: unknown): DigilockerStatus | null =>
   if (payload.code) return 'success';
 
   return null;
+};
+
+// ---------------------------------------------------------------------------
+// Getting the customer back from the consent window on a phone
+// ---------------------------------------------------------------------------
+// On a desktop `window.open` makes a popup: a small window floating over the form, which
+// this tab holds a live handle to and can close the moment the result lands. The customer
+// never loses sight of the application underneath it.
+//
+// On a phone there is no such thing as a popup. The same call makes a full TAB, it covers
+// the screen, and the two tabs are only loosely connected:
+//
+//   * `window.opener` is often null by the time the callback page loads — browsers sever
+//     it across a cross-origin redirect chain, and DigiLocker's is exactly that. The
+//     postMessage the callback sends then goes nowhere and the form tab hears nothing.
+//   * The form tab is in the background the whole time, so its timers are throttled to a
+//     crawl and the profile poll effectively stops until the customer returns to it.
+//   * Nothing can pull the form tab back to the front: `window.focus()` on another tab is
+//     ignored on mobile. The ONLY way back is the DigiLocker tab closing ITSELF, which
+//     hands the screen to the tab underneath — ours.
+//
+// So the outcome is announced over channels that do not depend on the opener handle at
+// all — a BroadcastChannel, plus a localStorage write, which raises a `storage` event in
+// every other tab on this origin even while they are backgrounded. The form tab listens
+// to both, and on hearing a result closes the consent tab from its side as well. Between
+// that and the callback page closing itself, one of the two lands.
+
+export const RESULT_CHANNEL = 'digilocker-result';
+export const RESULT_STORAGE_KEY = 'digilocker:result';
+export const RETURN_URL_KEY = 'digilocker:returnTo';
+
+// A result older than this is from an abandoned attempt, not this one.
+const RESULT_MAX_AGE_MS = 10 * 60 * 1000;
+
+export interface DigilockerResultBroadcast {
+  source: 'digilocker-callback';
+  status: DigilockerStatus;
+  requestId: string;
+  at: number;
+}
+
+/** Coarse pointer or a mobile UA — used only to word the UI, never to gate the flow. */
+export const isProbablyMobile = (): boolean => {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  if (/android|iphone|ipad|ipod|mobile|silk|kindle|blackberry|opera mini|iemobile/i.test(ua)) {
+    return true;
+  }
+  return (
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(pointer: coarse)').matches
+  );
+};
+
+/**
+ * Notes the page the customer left, so the callback can send them back to it if closing
+ * the consent tab is refused. Called as the consent window is opened, while we are still
+ * on the application page.
+ */
+export const rememberReturnUrl = (): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(RETURN_URL_KEY, window.location.pathname + window.location.search);
+  } catch {
+    // Storage disabled (private mode, blocked cookies) — readReturnUrl's default covers it.
+  }
+};
+
+/** Only ever a path on this site — never an absolute URL that landed in storage. */
+export const readReturnUrl = (): string => {
+  if (typeof window === 'undefined') return '/apply-now';
+  try {
+    const saved = localStorage.getItem(RETURN_URL_KEY);
+    if (saved && saved.startsWith('/') && !saved.startsWith('//')) return saved;
+  } catch {
+    // ignored — fall through to the default below
+  }
+  return '/apply-now';
+};
+
+const clearStoredResult = (): void => {
+  try {
+    localStorage.removeItem(RESULT_STORAGE_KEY);
+  } catch {
+    // ignored
+  }
+};
+
+/** Dropped when a new session starts, so a stale result cannot settle the next attempt. */
+export const resetResultChannel = (): void => clearStoredResult();
+
+const parseResult = (raw: string | null | undefined): DigilockerResultBroadcast | null => {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<DigilockerResultBroadcast>;
+    if (parsed?.source !== 'digilocker-callback') return null;
+    if (parsed.status !== 'success' && parsed.status !== 'failed') return null;
+    if (typeof parsed.at !== 'number' || Date.now() - parsed.at > RESULT_MAX_AGE_MS) return null;
+    return {
+      source: 'digilocker-callback',
+      status: parsed.status,
+      requestId: typeof parsed.requestId === 'string' ? parsed.requestId : '',
+      at: parsed.at,
+    };
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Announces the outcome to the application tab. Called from the callback page, which
+ * cannot rely on `window.opener` being there — see the note above.
+ */
+export const announceResult = (status: DigilockerStatus, requestId = ''): void => {
+  if (typeof window === 'undefined') return;
+  const payload: DigilockerResultBroadcast = {
+    source: 'digilocker-callback',
+    status,
+    requestId,
+    at: Date.now(),
+  };
+
+  try {
+    const channel = new BroadcastChannel(RESULT_CHANNEL);
+    channel.postMessage(payload);
+    // Left open briefly: closing in the same tick can drop the message in some browsers.
+    window.setTimeout(() => channel.close(), 1000);
+  } catch {
+    // No BroadcastChannel (older iOS Safari) — the storage write below is the fallback.
+  }
+
+  try {
+    // Written twice so a listener that is already holding this exact value still sees a
+    // change event; the key is removed first, which is itself a no-op for the reader.
+    localStorage.removeItem(RESULT_STORAGE_KEY);
+    localStorage.setItem(RESULT_STORAGE_KEY, JSON.stringify(payload));
+  } catch {
+    // ignored
+  }
+
+  console.log('[DigiLocker] result announced to the application tab', payload);
+};
+
+/**
+ * Listens for a result announced by the callback page in the other tab.
+ *
+ * Fires at most once, then stops listening. Returns the unsubscribe.
+ */
+export const listenForResult = (onResult: (result: DigilockerResultBroadcast) => void): (() => void) => {
+  if (typeof window === 'undefined') return () => {};
+
+  let done = false;
+  let channel: BroadcastChannel | null = null;
+
+  const deliver = (result: DigilockerResultBroadcast | null) => {
+    if (done || !result) return;
+    done = true;
+    clearStoredResult();
+    console.log('[DigiLocker] result picked up from the consent tab', result);
+    onResult(result);
+  };
+
+  const onStorage = (event: StorageEvent) => {
+    if (event.key !== RESULT_STORAGE_KEY) return;
+    deliver(parseResult(event.newValue));
+  };
+
+  window.addEventListener('storage', onStorage);
+
+  try {
+    channel = new BroadcastChannel(RESULT_CHANNEL);
+    channel.onmessage = (event) => deliver(parseResult(JSON.stringify(event.data)));
+  } catch {
+    channel = null;
+  }
+
+  // A result written while this tab was asleep raises no event, so read once on start.
+  try {
+    deliver(parseResult(localStorage.getItem(RESULT_STORAGE_KEY)));
+  } catch {
+    // ignored
+  }
+
+  return () => {
+    done = true;
+    window.removeEventListener('storage', onStorage);
+    channel?.close();
+  };
 };

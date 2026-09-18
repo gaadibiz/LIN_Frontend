@@ -6,7 +6,8 @@
 // `x-frame-options: SAMEORIGIN`, so an iframe of it only ever shows "refused to connect"
 // (see the note at the top of lib/digilocker.ts). The consent runs in a popup window
 // opened by the form; this panel just holds the form still while that happens, and
-// listens for the outcome the callback page posts back through window.opener.
+// listens for the outcome the callback page reports — through window.opener on a desktop
+// popup, and through a broadcast on a phone, where the opener handle does not survive.
 
 import React from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
@@ -14,6 +15,9 @@ import { Button } from "@/components/ui/button"
 import { Loader2, ShieldCheck, ExternalLink } from "lucide-react"
 import {
   checkAadhaarOnProfile,
+  confirmAadhaarAfterSuccess,
+  isProbablyMobile,
+  listenForResult,
   pollForAadhaarDetails,
   readCompletionMessage,
   readRedirectOrigin,
@@ -46,6 +50,15 @@ export function DigilockerModal({ session, popup, onClose, onComplete, onReopen 
   const [pollAttempt, setPollAttempt] = React.useState(0)
   const [isDeciding, setIsDeciding] = React.useState(false)
   const decidingRef = React.useRef(false)
+  // True while an announced success is being checked against the profile.
+  const [isConfirming, setIsConfirming] = React.useState(false)
+  // What the customer is actually looking at: a floating window on a desktop, a full tab
+  // on a phone. Only the wording depends on it, and it is worked out after mount so the
+  // server render and the first client render agree.
+  const [surface, setSurface] = React.useState<"window" | "tab">("window")
+  React.useEffect(() => {
+    setSurface(isProbablyMobile() ? "tab" : "window")
+  }, [])
 
   // Mirrors the popup prop, so the poll can close whichever window is current without
   // being restarted every time that handle changes.
@@ -82,8 +95,51 @@ export function DigilockerModal({ session, popup, onClose, onComplete, onReopen 
     setPopupClosed(false)
     setPollAttempt(0)
     setIsDeciding(false)
+    setIsConfirming(false)
     decidingRef.current = false
   }, [session])
+
+  // What to do with an outcome announced by the callback page, however it reached us.
+  //
+  // An announced success is a HINT, not the result. The backend cannot build a redirect
+  // per request — it is configured with two fixed urls, one per outcome — so nothing in
+  // the announcement ties it to this attempt, and any hit on the success url announces
+  // success. The profile is the record of what DigiLocker actually returned, so that is
+  // what decides; the announcement only says it is worth looking now.
+  //
+  // A failure needs no confirming: nothing was written, and there is nothing to check.
+  const handleAnnouncedResult = React.useCallback((status: DigilockerStatus) => {
+    if (settledRef.current) return
+
+    // Either way the consent window has done its job. Closing it from here is the second
+    // of the two ways a phone customer gets their screen back, the first being the
+    // callback page closing itself.
+    popupRef.current?.close()
+
+    if (status !== "success") {
+      settleRef.current("failed")
+      return
+    }
+
+    setIsConfirming(true)
+    confirmAadhaarAfterSuccess(() => settledRef.current).then((profile) => {
+      if (settledRef.current) return
+      setIsConfirming(false)
+      if (!profile) {
+        console.warn('[DigiLocker] announced success did not show up on the profile')
+        settleRef.current("failed")
+        return
+      }
+      settleRef.current("success", profile)
+    })
+  }, [])
+
+  // Held in a ref for the same reason settle is: the listeners below are tied to
+  // `session` alone and must not be torn down every time the parent re-renders.
+  const announcedRef = React.useRef(handleAnnouncedResult)
+  React.useEffect(() => {
+    announcedRef.current = handleAnnouncedResult
+  }, [handleAnnouncedResult])
 
   // The outcome. The backend redirects the popup to our own /digilocker/callback page,
   // which posts the result up through window.opener. There is no status endpoint to poll
@@ -102,11 +158,30 @@ export function DigilockerModal({ session, popup, onClose, onComplete, onReopen 
       if (!status) return // unrelated traffic — React DevTools, extensions, widgets
 
       console.log('[DigiLocker] result received', { origin: event.origin, data: event.data })
-      settleRef.current(status)
+      announcedRef.current(status)
     }
 
     window.addEventListener("message", handleMessage)
     return () => window.removeEventListener("message", handleMessage)
+  }, [session])
+
+  // The same outcome, over a route that does not need `window.opener`.
+  //
+  // postMessage above only works while the opener handle survives, which on a phone it
+  // usually does not: there the consent runs in a full TAB, and browsers sever the opener
+  // across DigiLocker's cross-origin redirect chain. The callback page therefore also
+  // broadcasts the result (BroadcastChannel + a localStorage write), and this is where
+  // that is picked up — it reaches this tab even while it sits in the background.
+  //
+  // Closing the consent tab from here matters as much as the result itself: it is the
+  // second of the two ways the customer gets their screen back, the first being the
+  // callback page closing itself. Whichever wins, they land on the application again.
+  React.useEffect(() => {
+    if (!session) return
+    return listenForResult((result) => {
+      console.log('[DigiLocker] broadcast result from the consent window:', result.status)
+      announcedRef.current(result.status)
+    })
   }, [session])
 
   // Primary success detection. The callback redirect may never happen, but the backend
@@ -176,9 +251,9 @@ export function DigilockerModal({ session, popup, onClose, onComplete, onReopen 
   }, [])
 
   // Returning to this tab is the strongest hint that the customer has finished in the
-  // popup, so it triggers one read straight away. This is what makes the skipping and
-  // the backoff above safe: the cheap path covers the waiting, and the moment something
-  // is likely to have changed, we look.
+  // consent window, so it triggers one read straight away. This is what makes the backoff
+  // above safe: the slow path covers the waiting, and the moment something is likely to
+  // have changed, we look.
   React.useEffect(() => {
     if (!session) return
 
@@ -233,8 +308,8 @@ export function DigilockerModal({ session, popup, onClose, onComplete, onReopen 
           </DialogTitle>
           <DialogDescription className="text-xs text-gray-500">
             {needsAction
-              ? "The DigiLocker window is not open. Open it to give consent for your Aadhaar."
-              : "Sign in to DigiLocker in the window that just opened and give consent. This closes on its own once it is done."}
+              ? `The DigiLocker ${surface} is not open. Open it to give consent for your Aadhaar.`
+              : `Sign in to DigiLocker in the ${surface} that just opened and give consent. It closes by itself and brings you back here once it is done.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -257,12 +332,16 @@ export function DigilockerModal({ session, popup, onClose, onComplete, onReopen 
             <>
               <Loader2 className="w-10 h-10 text-red-600 animate-spin" />
               <p className="text-sm text-gray-600 text-center">
-                Waiting for you to finish in the DigiLocker window…
+                {isConfirming
+                  ? "Confirming your Aadhaar details…"
+                  : `Waiting for you to finish in the DigiLocker ${surface}…`}
               </p>
               <p className="text-[11px] text-gray-400 text-center">
-                {pollAttempt > 0
-                  ? `Checking your Aadhaar details… (attempt ${pollAttempt})`
-                  : "Starting verification check…"}
+                {isConfirming
+                  ? "DigiLocker is done — saving the details to your application."
+                  : pollAttempt > 0
+                    ? `Checking your Aadhaar details… (attempt ${pollAttempt})`
+                    : "Starting verification check…"}
               </p>
               <Button
                 type="button"
@@ -277,7 +356,9 @@ export function DigilockerModal({ session, popup, onClose, onComplete, onReopen 
                 onClick={onReopen}
                 className="text-[12px] font-semibold text-[#1c2b4f] underline underline-offset-2 hover:text-red-600 transition-colors"
               >
-                Bring the DigiLocker window back to the front
+                {surface === "tab"
+                  ? "Open the DigiLocker tab again"
+                  : "Bring the DigiLocker window back to the front"}
               </button>
             </>
           )}
