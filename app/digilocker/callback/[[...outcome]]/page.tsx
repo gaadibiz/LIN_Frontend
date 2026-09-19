@@ -37,7 +37,15 @@
 
 import React from "react"
 import { ShieldCheck, XCircle, Loader2, ArrowLeft } from "lucide-react"
-import { announceResult, readReturnUrl, trace, traceStart, traceStop } from "@/lib/digilocker"
+import {
+  announceResult,
+  describeFailure,
+  readFailureReason,
+  readReturnUrl,
+  trace,
+  traceStart,
+  traceStop,
+} from "@/lib/digilocker"
 
 const FAILURE_WORDS = ["fail", "error", "denied", "rejected", "declined", "cancel", "expired"]
 const SUCCESS_WORDS = ["success", "verified", "complete", "approved", "done"]
@@ -64,6 +72,8 @@ export default function DigilockerCallbackPage() {
   const [outcome, setOutcome] = React.useState<Outcome>("pending")
   // True once the browser has clearly refused to close this window on its own.
   const [needsManualReturn, setNeedsManualReturn] = React.useState(false)
+  // What the backend said went wrong, already turned into a sentence for the customer.
+  const [failureText, setFailureText] = React.useState<string | null>(null)
   const [isReturning, setIsReturning] = React.useState(false)
   const returnUrlRef = React.useRef("/apply-now")
 
@@ -87,24 +97,31 @@ export default function DigilockerCallbackPage() {
     const requestId =
       params.get("requestId") || params.get("request_id") || params.get("state") || ""
 
+    // The backend's own reason, when it sent one. Kept raw for the trace and described
+    // for the screen — "502 Bad Gateway" is the useful fact here, not the useful sentence.
+    const rawReason = status === "failed" ? readFailureReason(params) : null
+
     trace(`outcome read as: ${status}`, {
       fromPath: readOutcomeFromPath(window.location.pathname) ?? '(path said nothing)',
       fromQuery: raw || '(query said nothing)',
       requestId: requestId || '(none)',
+      reasonFromBackend: rawReason ?? '(none given)',
     })
+
+    if (status === "failed") setFailureText(describeFailure(rawReason))
     setOutcome(status)
     returnUrlRef.current = readReturnUrl()
 
     // Tell the application tab first — it must learn the result whether or not this
     // window manages to close, and whether or not the opener handle survived.
-    announceResult(status, requestId)
+    announceResult(status, requestId, rawReason ?? '')
 
     // The desktop path: the modal is the parent when framed, and the opener when the
     // consent ran in a popup. Same-origin, so the message is targeted, not "*".
     const host = window.parent !== window ? window.parent : window.opener
     if (host) {
       host.postMessage(
-        { source: "digilocker-callback", status, requestId },
+        { source: "digilocker-callback", status, requestId, reason: rawReason ?? "" },
         window.location.origin,
       )
       trace('posted the result to the opener window')
@@ -186,7 +203,7 @@ export default function DigilockerCallbackPage() {
           <p className="text-sm text-gray-600 max-w-sm">
             {ok
               ? "Your Aadhaar details have been saved. Tap below to go back to your loan application."
-              : "Nothing was saved. Tap below to go back to your loan application and try again."}
+              : failureText ?? "Nothing was saved. Tap below to go back to your loan application and try again."}
           </p>
           <button
             type="button"

@@ -20,6 +20,7 @@ import {
   confirmAadhaarAfterSuccess,
   isProbablyMobile,
   listenForResult,
+  readCompletionReason,
   trace,
   traceDone,
   traceStop,
@@ -50,7 +51,13 @@ interface DigilockerModalProps {
   onClose: () => void
   // `profile` carries the Aadhaar details when the profile poll is what detected the
   // success, so the form can auto-fill from them instead of asking again.
-  onComplete: (status: DigilockerStatus, profile?: AadhaarProfile) => void | Promise<void>
+  // `reason` carries the backend's own explanation of a failure, so the form can show
+  // what actually went wrong instead of one generic line for every cause.
+  onComplete: (
+    status: DigilockerStatus,
+    profile?: AadhaarProfile,
+    reason?: string,
+  ) => void | Promise<void>
   // Re-opens the consent window; runs from this component's click, so it counts as a
   // fresh user gesture and the popup blocker allows it.
   onReopen: () => void
@@ -109,12 +116,12 @@ export function DigilockerModal({ session, popup, onClose, onComplete, onReopen 
   }, [popup])
 
   const settle = React.useCallback(
-    (status: DigilockerStatus, profile?: AadhaarProfile) => {
+    (status: DigilockerStatus, profile?: AadhaarProfile, reason?: string) => {
       if (settledRef.current) return
       settledRef.current = true
       if (status === "success") traceDone('VERIFIED — handing the details to the form', profile ?? '')
-      else traceStop('this attempt is being reported to the form as FAILED')
-      onComplete(status, profile)
+      else traceStop('this attempt is being reported to the form as FAILED', reason ?? '(no reason given)')
+      onComplete(status, profile, reason)
     },
     [onComplete],
   )
@@ -205,11 +212,11 @@ export function DigilockerModal({ session, popup, onClose, onComplete, onReopen 
 
   // A failure needs no confirming: nothing was written, so there is nothing to check.
   const handleAnnouncedResult = React.useCallback(
-    (status: DigilockerStatus) => {
+    (status: DigilockerStatus, reason?: string) => {
       if (settledRef.current) return
       if (status !== "success") {
         popupRef.current?.close()
-        settleRef.current("failed")
+        settleRef.current("failed", undefined, reason)
         return
       }
       // The requestId has already been matched against this attempt, so the record is
@@ -251,7 +258,7 @@ export function DigilockerModal({ session, popup, onClose, onComplete, onReopen 
       if (!status) return // unrelated traffic — React DevTools, extensions, widgets
 
       trace('outcome arrived by postMessage', { origin: event.origin, data: event.data })
-      announcedRef.current(status)
+      announcedRef.current(status, readCompletionReason(event.data))
     }
 
     window.addEventListener("message", handleMessage)
@@ -289,8 +296,9 @@ export function DigilockerModal({ session, popup, onClose, onComplete, onReopen 
 
       trace(`outcome arrived by broadcast: ${result.status}`, {
         requestId: result.requestId || '(none)',
+        reason: result.reason || '(none)',
       })
-      announcedRef.current(result.status)
+      announcedRef.current(result.status, result.reason)
     })
   }, [session])
 

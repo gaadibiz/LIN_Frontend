@@ -1,53 +1,6 @@
-// DigiLocker Aadhaar verification.
-//
-// Flow: the user types their 12-digit Aadhaar number — nothing is checked while typing —
-// and presses the DigiLocker submit button. That calls request-digilocker, which returns:
-//
-//   { requestId: "6aa7f3fc...", url: "https://api.digitallocker.gov.in/public/oauth2/1/authorize?..." }
-//
-// The url is DigiLocker's PKCE OAuth consent page, opened in a POPUP WINDOW, and only
-// ever after the backend has answered with a url — nothing is opened speculatively.
-//
-// Why a popup and not an iframe
-// -----------------------------
-// DigiLocker forbids embedding. digilocker.meripehchaan.gov.in answers with
-// `x-frame-options: SAMEORIGIN` and `content-security-policy: … frame-ancestors 'none'`,
-// so any iframe of it renders "refused to connect" no matter what sandbox/allow
-// attributes we set. The block is enforced by the browser on their instruction; there is
-// nothing to configure on our side. A separate window is the only way their page runs.
-//
-// How the outcome gets back to us
-// -------------------------------
-// DigiLocker's `redirect_uri` points at the BACKEND's domain, not ours, so the frontend
-// never sees the OAuth code. The backend is the only party that learns the result.
-//
-// There is NO status endpoint to poll — every candidate path (digilocker-status,
-// digilocker/status, digilocker-result, verify-digilocker, …) answers 404, while routes
-// that do exist answer 401. So the backend instead REDIRECTS the browser, at the end of
-// the flow, to CALLBACK_PATH on this app with the outcome in the query string. That page
-// runs inside the popup, so it reports back through `window.opener` rather than
-// `window.parent`, and the signup form then runs the validate check.
-//
-// The Aadhaar number is validated (validate endpoint) only AFTER that success arrives,
-// never before — see handleDigilockerComplete in Step2PersonalDetails.
-
 import { apiClient } from './api';
 import { config } from './config';
 
-// ---------------------------------------------------------------------------
-// Step-by-step trace
-// ---------------------------------------------------------------------------
-// One attempt touches four files, three windows and half a dozen places where it can
-// quietly stop — a number that is not twelve digits, a blocked window, a backend refusal,
-// a result for a different attempt, a record that has not moved. Read as scattered
-// console.log lines, a failed verification tells you nothing about WHICH of those hit.
-//
-// So every step reports through here, every bailout says why in its own line, and each
-// line carries the seconds elapsed since the attempt began. The trace reads top to bottom
-// and the last line before the ✗ is always the thing that stopped it.
-//
-// The whole flow is prefixed [DigiLocker], so filtering the console on that word shows
-// the attempt and nothing else.
 
 let traceStartedAt = Date.now();
 
@@ -714,6 +667,111 @@ export const confirmAadhaarAfterSuccess = async (
   return null;
 };
 
+// ---------------------------------------------------------------------------
+// Why it failed
+// ---------------------------------------------------------------------------
+// The backend puts a reason in the failure redirect — Signzy's own words, or whatever
+// went wrong reaching it: a 502 while DigiLocker is down, a 404 for a request it no
+// longer has, a cancelled consent. All of it used to be thrown away, and every failure
+// showed the same "not completed, please try again", which tells the customer nothing
+// about whether to retry now, retry later, or stop.
+//
+// So the reason is carried through to the toast. Two things happen to it on the way.
+//
+// It is CLEANED, because it arrives in a query string and a query string can be written
+// by anyone who can get a link in front of the customer. Sonner renders text, so this is
+// not about markup — it is about not repeating a stranger's sentence to someone filling
+// in a loan application. Length is capped, brackets and control characters go, and
+// anything carrying a url or a phone number is dropped entirely rather than shown.
+//
+// It is DESCRIBED, because "ECONNREFUSED" and "502 Bad Gateway" mean nothing to a
+// customer. The technical shapes map to a sentence that says what to actually do; the
+// raw text is still written to the trace, so the real reason is one console line away.
+
+const REASON_KEYS = [
+  'message',
+  'error_description',
+  'errorDescription',
+  'reason',
+  'errorMessage',
+  'error_message',
+  'description',
+  'statusMessage',
+  'status_message',
+  'msg',
+  'error',
+];
+
+/** Strips a query-string reason down to something safe to repeat, or drops it. */
+export const cleanFailureReason = (raw: unknown): string | null => {
+  const text = String(raw ?? '')
+    .replace(/[\u0000-\u001f\u007f]+/g, ' ')
+    .replace(/[<>]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!text) return null;
+  // A bare code is a code, not a sentence — describeFailure turns it into one.
+  if (text.length > 300) return null;
+  // Anything trying to send the customer somewhere, or get them to call someone, is not
+  // a failure reason worth repeating.
+  if (/https?:\/\/|www\.|\b\d{10}\b|@/i.test(text)) return null;
+  return text;
+};
+
+/** The reason the backend gave, if it gave one, from wherever it put it. */
+export const readFailureReason = (params: URLSearchParams): string | null => {
+  for (const key of REASON_KEYS) {
+    const value = cleanFailureReason(params.get(key));
+    // `error=true` and `error=1` are flags, not reasons.
+    if (value && !/^(true|1|0|false|error|failed|failure)$/i.test(value)) return value;
+  }
+  return null;
+};
+
+const UNREACHABLE = /\b(502|503|504|bad gateway|gateway timeout|service unavailable|upstream|econnrefused|econnreset|etimedout|enotfound|network|socket hang up)\b/i;
+const NOT_FOUND = /\b(404|not found|no such|unknown request|invalid request id)\b/i;
+const CANCELLED = /\b(cancel|cancelled|canceled|denied|declined|rejected|refused|consent not given)\b/i;
+const EXPIRED = /\b(expire|expired|timeout|timed out|session ended)\b/i;
+const AUTH = /\b(401|403|unauthorized|forbidden|invalid token|authentication)\b/i;
+
+// What a failed callback says when the backend gave no reason, and when the reason it
+// gave is a network or gateway error. Both are the same thing from the customer's side:
+// DigiLocker could not be reached, and the answer is to come back later rather than to
+// keep pressing the button.
+export const GENERIC_FAILURE = 'DigiLocker upstream is down. Please try again later.';
+
+/**
+ * Turns a raw failure reason into a sentence for the customer.
+ *
+ * Falls back to the generic line when there is nothing useful to say — never to a raw
+ * error code, which only makes the customer think the form is broken.
+ */
+export const describeFailure = (raw?: string | null): string => {
+  const reason = cleanFailureReason(raw);
+  if (!reason) return GENERIC_FAILURE;
+
+  if (UNREACHABLE.test(reason)) return GENERIC_FAILURE;
+  if (NOT_FOUND.test(reason)) {
+    return 'This DigiLocker request is no longer valid. Please start the verification again.';
+  }
+  if (EXPIRED.test(reason)) {
+    return 'The DigiLocker session expired before it finished. Please try again.';
+  }
+  if (CANCELLED.test(reason)) {
+    return 'DigiLocker consent was not given. Please try again and allow access to your Aadhaar.';
+  }
+  if (AUTH.test(reason)) {
+    return 'DigiLocker refused the request. Please try again, or contact support if it keeps happening.';
+  }
+
+  // A bare status code or error constant is not a sentence — say nothing rather than that.
+  if (/^[A-Z0-9_\- ]{1,24}$/.test(reason) || /^\d{3}$/.test(reason)) return GENERIC_FAILURE;
+
+  // The backend wrote a real sentence, so use its words.
+  return /[.!?]$/.test(reason) ? reason : `${reason}.`;
+};
+
 const SUCCESS_WORDS = ['success', 'verified', 'completed', 'complete', 'approved'];
 const FAILURE_WORDS = ['fail', 'error', 'denied', 'rejected', 'declined', 'cancel', 'expired'];
 
@@ -723,6 +781,10 @@ const FAILURE_WORDS = ['fail', 'error', 'denied', 'rejected', 'declined', 'cance
  * Returns null for anything that is not a decision, so unrelated postMessage traffic —
  * React DevTools, browser extensions, embedded widgets — cannot close the modal.
  */
+/** The failure reason on a postMessage payload, if it carried one. */
+export const readCompletionReason = (data: unknown): string =>
+  cleanFailureReason(asRecord(data).reason) ?? '';
+
 export const readCompletionMessage = (data: unknown): DigilockerStatus | null => {
   const payload = asRecord(data);
   if (Object.keys(payload).length === 0) return null;
@@ -741,30 +803,6 @@ export const readCompletionMessage = (data: unknown): DigilockerStatus | null =>
   return null;
 };
 
-// ---------------------------------------------------------------------------
-// Getting the customer back from the consent window on a phone
-// ---------------------------------------------------------------------------
-// On a desktop `window.open` makes a popup: a small window floating over the form, which
-// this tab holds a live handle to and can close the moment the result lands. The customer
-// never loses sight of the application underneath it.
-//
-// On a phone there is no such thing as a popup. The same call makes a full TAB, it covers
-// the screen, and the two tabs are only loosely connected:
-//
-//   * `window.opener` is often null by the time the callback page loads — browsers sever
-//     it across a cross-origin redirect chain, and DigiLocker's is exactly that. The
-//     postMessage the callback sends then goes nowhere and the form tab hears nothing.
-//   * The form tab is in the background the whole time, so its timers are throttled to a
-//     crawl and the profile poll effectively stops until the customer returns to it.
-//   * Nothing can pull the form tab back to the front: `window.focus()` on another tab is
-//     ignored on mobile. The ONLY way back is the DigiLocker tab closing ITSELF, which
-//     hands the screen to the tab underneath — ours.
-//
-// So the outcome is announced over channels that do not depend on the opener handle at
-// all — a BroadcastChannel, plus a localStorage write, which raises a `storage` event in
-// every other tab on this origin even while they are backgrounded. The form tab listens
-// to both, and on hearing a result closes the consent tab from its side as well. Between
-// that and the callback page closing itself, one of the two lands.
 
 export const RESULT_CHANNEL = 'digilocker-result';
 export const RESULT_STORAGE_KEY = 'digilocker:result';
@@ -777,6 +815,8 @@ export interface DigilockerResultBroadcast {
   source: 'digilocker-callback';
   status: DigilockerStatus;
   requestId: string;
+  /** The backend's own reason for a failure, already cleaned. Empty on success. */
+  reason: string;
   at: number;
 }
 
@@ -842,6 +882,7 @@ const parseResult = (raw: string | null | undefined): DigilockerResultBroadcast 
       source: 'digilocker-callback',
       status: parsed.status,
       requestId: typeof parsed.requestId === 'string' ? parsed.requestId : '',
+      reason: cleanFailureReason(parsed.reason) ?? '',
       at: parsed.at,
     };
   } catch {
@@ -853,12 +894,17 @@ const parseResult = (raw: string | null | undefined): DigilockerResultBroadcast 
  * Announces the outcome to the application tab. Called from the callback page, which
  * cannot rely on `window.opener` being there — see the note above.
  */
-export const announceResult = (status: DigilockerStatus, requestId = ''): void => {
+export const announceResult = (
+  status: DigilockerStatus,
+  requestId = '',
+  reason = '',
+): void => {
   if (typeof window === 'undefined') return;
   const payload: DigilockerResultBroadcast = {
     source: 'digilocker-callback',
     status,
     requestId,
+    reason: cleanFailureReason(reason) ?? '',
     at: Date.now(),
   };
 

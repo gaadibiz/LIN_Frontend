@@ -14,7 +14,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator } from "@/comp
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { calculateAge, isAgeEligible, MIN_ELIGIBLE_AGE, MAX_ELIGIBLE_AGE } from "@/lib/utils"
 import { DigilockerModal } from "@/components/signup/DigilockerModal"
-import { fetchDigilockerSession, openConsentPopup, steerPopupTo, toIsoDate, trace, traceStart, traceStop, type AadhaarProfile, type DigilockerSession, type DigilockerStatus } from "@/lib/digilocker"
+import { describeFailure, fetchDigilockerSession, openConsentPopup, steerPopupTo, toIsoDate, trace, traceStart, traceStop, type AadhaarProfile, type DigilockerSession, type DigilockerStatus } from "@/lib/digilocker"
 
 interface Step2Props {
   onSubmit: (data: PersonalDetailsForm) => void;
@@ -348,7 +348,11 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
   // On a DigiLocker failure it is NOT called — the number never reaches the validate
   // endpoint unless the customer actually completed consent. This is deliberate: consent
   // is the gate, and a failed or abandoned DigiLocker leaves the Aadhaar unvalidated.
-  const handleDigilockerComplete = async (status: DigilockerStatus, profile?: AadhaarProfile) => {
+  const handleDigilockerComplete = async (
+    status: DigilockerStatus,
+    profile?: AadhaarProfile,
+    reason?: string,
+  ) => {
     // The consent window has served its purpose either way.
     digilockerPopupRef.current?.close();
     digilockerPopupRef.current = null;
@@ -361,7 +365,9 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
       setAadhaarStatus('idle');
       setAadhaarError(null);
       verifiedAadhaarRef.current = null;
-      toast.error("DigiLocker verification was not completed. Please try again.");
+      // The backend's own reason when it gave one — "DigiLocker is not responding right
+      // now" tells the customer whether to retry now or later; the generic line does not.
+      toast.error(describeFailure(reason));
       return;
     }
 
