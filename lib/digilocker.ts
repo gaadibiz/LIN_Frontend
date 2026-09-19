@@ -2,33 +2,66 @@ import { apiClient } from './api';
 import { config } from './config';
 
 
+// OFF by default. A customer's console is not the place for this, and the trace carries
+// their Aadhaar number, so it prints nothing until someone asks for it.
+//
+// Turn it on for a session — including on a real phone, where there are no devtools
+// flags to set — from the console of the tab being debugged:
+//
+//   localStorage.setItem('digilocker:debug', '1')     // on
+//   localStorage.removeItem('digilocker:debug')       // off again
+//
+// It is read on every line rather than cached, so it can be switched on halfway through
+// an attempt and the remaining steps still appear. The consent window is a separate tab
+// on the SAME origin, so one switch covers both.
+const DEBUG_KEY = 'digilocker:debug';
+
+const tracing = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  try {
+    return localStorage.getItem(DEBUG_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
+
 let traceStartedAt = Date.now();
 
 const elapsed = (): string => `+${((Date.now() - traceStartedAt) / 1000).toFixed(1)}s`;
 
-/** Starts a fresh attempt: resets the clock so the timings below mean something. */
+/**
+ * Starts a fresh attempt: resets the clock so the timings below mean something.
+ *
+ * The clock is reset whether or not the trace is on, so switching it on mid-attempt
+ * still gives elapsed times measured from the button press rather than from the switch.
+ */
 export const traceStart = (what: string, detail?: unknown): void => {
   traceStartedAt = Date.now();
+  if (!tracing()) return;
   console.log(`%c[DigiLocker] ▶ ${what}`, 'color:#1c2b4f;font-weight:bold', detail ?? '');
 };
 
 /** A step that happened. */
 export const trace = (step: string, detail?: unknown): void => {
+  if (!tracing()) return;
   console.log(`[DigiLocker ${elapsed()}] ${step}`, detail ?? '');
 };
 
 /** Still waiting, and why — the noisy, repeating lines. */
 export const traceWait = (why: string, detail?: unknown): void => {
+  if (!tracing()) return;
   console.log(`[DigiLocker ${elapsed()}] … ${why}`, detail ?? '');
 };
 
 /** The attempt stopped here. This is the line to read. */
 export const traceStop = (why: string, detail?: unknown): void => {
+  if (!tracing()) return;
   console.warn(`[DigiLocker ${elapsed()}] ✗ STOPPED: ${why}`, detail ?? '');
 };
 
 /** It worked. */
 export const traceDone = (what: string, detail?: unknown): void => {
+  if (!tracing()) return;
   console.log(`%c[DigiLocker ${elapsed()}] ✓ ${what}`, 'color:#16a34a;font-weight:bold', detail ?? '');
 };
 
