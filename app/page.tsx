@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import BenefitTabsSection from "@/components/BenefitTabsSection";
 import CardGrids from "@/components/CardGrids";
+import DisclaimerSection from "@/components/DisclaimerSection";
 import FAQSection from "@/components/FAQSection";
 import FootCTA from "@/components/FootCTA";
 import Footer from "@/components/Footer";
@@ -40,7 +41,8 @@ export default function HomePage() {
           </div>
         </section>
         <LoanCalculator />
-        <TestimonialSection />
+        <DisclaimerSection />
+        {/* <TestimonialSection /> */}
         <FAQSection faqData={homeFAQdata} />
         <FootCTA />
       </main>
