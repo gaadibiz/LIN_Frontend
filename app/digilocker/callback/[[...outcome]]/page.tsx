@@ -37,7 +37,7 @@
 
 import React from "react"
 import { ShieldCheck, XCircle, Loader2, ArrowLeft } from "lucide-react"
-import { announceResult, readReturnUrl } from "@/lib/digilocker"
+import { announceResult, readReturnUrl, trace, traceStart, traceStop } from "@/lib/digilocker"
 
 const FAILURE_WORDS = ["fail", "error", "denied", "rejected", "declined", "cancel", "expired"]
 const SUCCESS_WORDS = ["success", "verified", "complete", "approved", "done"]
@@ -68,10 +68,12 @@ export default function DigilockerCallbackPage() {
   const returnUrlRef = React.useRef("/apply-now")
 
   React.useEffect(() => {
-    console.log('[DigiLocker] callback page loaded at:', window.location.href)
+    // A separate window, so it has its own console and its own clock. Anything printed
+    // here belongs to the consent window, not to the tab holding the form.
+    traceStart('CONSENT WINDOW — callback page loaded', window.location.href)
 
     const params = new URLSearchParams(window.location.search)
-    console.log('[DigiLocker] callback query params:', Object.fromEntries(params.entries()))
+    trace('query parameters the backend sent', Object.fromEntries(params.entries()))
 
     const raw = (params.get("status") || params.get("result") || "").toLowerCase()
 
@@ -85,7 +87,11 @@ export default function DigilockerCallbackPage() {
     const requestId =
       params.get("requestId") || params.get("request_id") || params.get("state") || ""
 
-    console.log('[DigiLocker] callback outcome:', status)
+    trace(`outcome read as: ${status}`, {
+      fromPath: readOutcomeFromPath(window.location.pathname) ?? '(path said nothing)',
+      fromQuery: raw || '(query said nothing)',
+      requestId: requestId || '(none)',
+    })
     setOutcome(status)
     returnUrlRef.current = readReturnUrl()
 
@@ -101,9 +107,9 @@ export default function DigilockerCallbackPage() {
         { source: "digilocker-callback", status, requestId },
         window.location.origin,
       )
-      console.log('[DigiLocker] callback posted result to the opener')
+      trace('posted the result to the opener window')
     } else {
-      console.log('[DigiLocker] callback has no opener — relying on the broadcast')
+      trace('no opener handle (normal on a phone) — the broadcast is what will be heard')
     }
 
     // Framed inside the application itself: there is nothing to close, the modal takes
@@ -116,15 +122,16 @@ export default function DigilockerCallbackPage() {
       try {
         window.close()
       } catch (err) {
-        console.warn('[DigiLocker] window.close() threw', err)
+        trace('window.close() threw', err)
       }
     }
 
+    trace('closing this window so the customer lands back on the application')
     attemptClose()
     const retry = window.setTimeout(attemptClose, 400)
     const giveUp = window.setTimeout(() => {
       // Still here, so the browser will not close this window by itself.
-      console.log('[DigiLocker] could not close automatically — offering the way back')
+      traceStop('the browser refused to close this window — showing the manual way back')
       setNeedsManualReturn(true)
     }, AUTO_CLOSE_GRACE_MS)
 
@@ -146,7 +153,7 @@ export default function DigilockerCallbackPage() {
     }
     window.setTimeout(() => {
       if (!window.closed) {
-        console.log('[DigiLocker] close refused — navigating back to', returnUrlRef.current)
+        trace('close refused again — navigating this window back to the application', returnUrlRef.current)
         window.location.replace(returnUrlRef.current)
       }
     }, 400)

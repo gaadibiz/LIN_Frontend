@@ -14,7 +14,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator } from "@/comp
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { calculateAge, isAgeEligible, MIN_ELIGIBLE_AGE, MAX_ELIGIBLE_AGE } from "@/lib/utils"
 import { DigilockerModal } from "@/components/signup/DigilockerModal"
-import { fetchDigilockerSession, openConsentPopup, steerPopupTo, type AadhaarProfile, type DigilockerSession, type DigilockerStatus } from "@/lib/digilocker"
+import { fetchDigilockerSession, openConsentPopup, steerPopupTo, toIsoDate, trace, traceStart, traceStop, type AadhaarProfile, type DigilockerSession, type DigilockerStatus } from "@/lib/digilocker"
 
 interface Step2Props {
   onSubmit: (data: PersonalDetailsForm) => void;
@@ -270,7 +270,13 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
   // only then goes on to file the application.
   const handleDigilockerSubmit = async () => {
     const digits = String(watch("aadhaarNumber") || "").replace(/\D/g, "");
-    if (digits.length !== 12) return;
+
+    traceStart('step 1/7 — DigiLocker button pressed', { aadhaarNumber: digits });
+
+    if (digits.length !== 12) {
+      traceStop(`the aadhaar number is ${digits.length} digits, not 12 — nothing was sent`);
+      return;
+    }
 
     // Taken BEFORE the await: window.open is only permitted while the click is still
     // being handled, and awaiting the backend first would spend that gesture and get the
@@ -279,6 +285,7 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
     digilockerPopupRef.current = popup;
     setDigilockerPopup(popup);
     digilockerAadhaarRef.current = digits;
+    trace(`step 2/7 — consent window ${popup ? 'opened' : 'REFUSED by the browser'}`);
 
     setIsRequestingDigilocker(true);
     try {
@@ -290,6 +297,7 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
         // The backend's own wording when it gave one — "This Aadhaar number is already
         // registered with another account." tells the user what to do; the generic line
         // below does not, so it is only the fallback for a refusal with no reason.
+        traceStop('no session, so DigiLocker was never opened', error ?? '(no reason given)');
         toast.error(error || "Could not open DigiLocker right now. Please try again.");
         return;
       }
@@ -298,6 +306,7 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
       setDigilockerSession(session);
 
       if (!popup) {
+        traceStop('the consent url is ready but the window was blocked — waiting for the customer to open it manually');
         toast.error("Please allow pop-ups for this site, then use the Open DigiLocker button.");
       }
     } finally {
@@ -347,7 +356,7 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
     setDigilockerSession(null);
 
     if (status !== "success") {
-      console.log('[DigiLocker] failed — skipping the Aadhaar validate call');
+      traceStop('the attempt failed, so the aadhaar validate call is being skipped');
       setDigilockerStatus('failed');
       setAadhaarStatus('idle');
       setAadhaarError(null);
@@ -362,7 +371,7 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
     // Auto-fill from the DigiLocker record before validating, so the name on the form is
     // the name DigiLocker returned rather than anything typed by hand.
     if (profile) {
-      console.log('[DigiLocker] auto-filling from profile:', profile);
+      trace('step 7/7 — auto-filling the form from the DigiLocker record', profile);
 
       // The backend may write the Aadhaar number before the name, so the name is only
       // filled when it actually came back.
@@ -380,10 +389,14 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
         }
       }
 
+      // DigiLocker sends DD/MM/YYYY, which `new Date` misreads as MM/DD/YYYY — see
+      // toIsoDate. The date of birth decides age eligibility, so it has to be the real one.
       if (profile.dob && !String(watch("dateOfBirth") || "").trim()) {
-        const iso = new Date(profile.dob);
-        if (!Number.isNaN(iso.getTime())) {
-          setValue("dateOfBirth", iso.toISOString().split("T")[0], { shouldValidate: true });
+        const iso = toIsoDate(profile.dob);
+        if (iso) {
+          setValue("dateOfBirth", iso, { shouldValidate: true });
+        } else {
+              traceStop(`could not read the date of birth "${profile.dob}" — leaving the field empty`);
         }
       }
 
@@ -403,10 +416,11 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
       setValue("aadhaarNumber", digits, { shouldValidate: true });
     }
 
-    console.log('[DigiLocker] success — now validating Aadhaar');
+    trace('consent confirmed — now calling the aadhaar validate endpoint', digits);
 
     const ok = await verifyAadhaarNumber(digits);
     if (ok) {
+      trace('VERIFIED — the form is unlocked');
       setDigilockerStatus('verified');
       toast.success("Aadhaar verified through DigiLocker.");
       return;
@@ -414,6 +428,7 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
 
     // Consent went through but the number was rejected by validate, so this is not a
     // verified Aadhaar and the form must not proceed on it.
+    traceStop('consent went through but the validate endpoint rejected the number', aadhaarError ?? '');
     setDigilockerStatus('failed');
     toast.error(aadhaarError || "Aadhaar could not be validated. Please try again.");
   };

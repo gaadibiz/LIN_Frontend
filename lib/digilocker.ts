@@ -34,11 +34,60 @@
 import { apiClient } from './api';
 import { config } from './config';
 
+// ---------------------------------------------------------------------------
+// Step-by-step trace
+// ---------------------------------------------------------------------------
+// One attempt touches four files, three windows and half a dozen places where it can
+// quietly stop — a number that is not twelve digits, a blocked window, a backend refusal,
+// a result for a different attempt, a record that has not moved. Read as scattered
+// console.log lines, a failed verification tells you nothing about WHICH of those hit.
+//
+// So every step reports through here, every bailout says why in its own line, and each
+// line carries the seconds elapsed since the attempt began. The trace reads top to bottom
+// and the last line before the ✗ is always the thing that stopped it.
+//
+// The whole flow is prefixed [DigiLocker], so filtering the console on that word shows
+// the attempt and nothing else.
+
+let traceStartedAt = Date.now();
+
+const elapsed = (): string => `+${((Date.now() - traceStartedAt) / 1000).toFixed(1)}s`;
+
+/** Starts a fresh attempt: resets the clock so the timings below mean something. */
+export const traceStart = (what: string, detail?: unknown): void => {
+  traceStartedAt = Date.now();
+  console.log(`%c[DigiLocker] ▶ ${what}`, 'color:#1c2b4f;font-weight:bold', detail ?? '');
+};
+
+/** A step that happened. */
+export const trace = (step: string, detail?: unknown): void => {
+  console.log(`[DigiLocker ${elapsed()}] ${step}`, detail ?? '');
+};
+
+/** Still waiting, and why — the noisy, repeating lines. */
+export const traceWait = (why: string, detail?: unknown): void => {
+  console.log(`[DigiLocker ${elapsed()}] … ${why}`, detail ?? '');
+};
+
+/** The attempt stopped here. This is the line to read. */
+export const traceStop = (why: string, detail?: unknown): void => {
+  console.warn(`[DigiLocker ${elapsed()}] ✗ STOPPED: ${why}`, detail ?? '');
+};
+
+/** It worked. */
+export const traceDone = (what: string, detail?: unknown): void => {
+  console.log(`%c[DigiLocker ${elapsed()}] ✓ ${what}`, 'color:#16a34a;font-weight:bold', detail ?? '');
+};
+
+
 export type DigilockerStatus = 'success' | 'failed';
 
 export interface DigilockerSession {
   url: string;
   requestId: string;
+  // The 12 digits this consent was raised for. Everything downstream checks the profile
+  // record against it, so a record left over from a different number cannot pass.
+  aadhaarNumber: string;
 }
 
 // Where the backend sends the browser once it knows the outcome. Kept here so the page,
@@ -84,7 +133,7 @@ export const openConsentPopup = (): Window | null => {
 
   const popup = window.open('', POPUP_NAME, features);
   if (!popup) {
-    console.warn('[DigiLocker] popup blocked by the browser');
+    traceStop('the browser blocked the consent window (pop-up blocker)');
     return null;
   }
 
@@ -96,17 +145,17 @@ export const openConsentPopup = (): Window | null => {
      </body></html>`,
   );
   popup.document.close();
-
+  
   return popup;
 };
 
 /** Sends an already-open popup to the consent URL. */
 export const steerPopupTo = (popup: Window | null, url: string): boolean => {
   if (!popup || popup.closed) {
-    console.warn('[DigiLocker] popup is gone before it could be pointed at', url);
+    traceStop('the consent window was gone before it could be pointed at DigiLocker', url);
     return false;
   }
-  console.log('[DigiLocker] pointing popup at:', url);
+  trace('step 4/7 — sending the consent window to DigiLocker', url);
   popup.location.href = url;
   popup.focus();
   return true;
@@ -178,45 +227,46 @@ export const fetchDigilockerSession = async (
     // Debug log of the exact body POSTed to request-digilocker. The Aadhaar is shown in
     // full deliberately, so the number reaching the backend can be checked against the
     // one on screen — it only ever reaches this browser's own console.
-    console.log('[DigiLocker] POST', `${config.apiUrl}/api/auth/aadhaar/request-digilocker`, 'body:', {
+    trace('step 3/7 — asking the backend for a consent url', {
+      endpoint: `${config.apiUrl}/api/auth/aadhaar/request-digilocker`,
       aadhaarNumber: cleanAadhaar,
       redirectUrl: buildCallbackUrl(),
     });
 
     const res = await apiClient.requestDigilocker(cleanAadhaar, buildCallbackUrl());
-    console.log('[DigiLocker] raw response', res);
+    trace('backend answered', res);
 
     // A 200 that says `status: "error"` is a refusal with a reason — surface it as-is.
     const refusal = readErrorMessage(res);
     if (refusal) {
-      console.error('DigiLocker: backend refused the request', refusal);
+      traceStop(`the backend refused to open a session — "${refusal}"`);
       return { session: null, error: refusal };
     }
 
     const url = readKey(res, URL_KEYS);
     const requestId = readKey(res, REQUEST_ID_KEYS);
-    console.log('[DigiLocker] parsed url:', url);
-    console.log('[DigiLocker] parsed requestId:', requestId);
+    trace('parsed from the answer', { url, requestId });
 
     if (!url) {
-      console.error('DigiLocker: no consent URL in response', res);
+      traceStop('the backend answered without a consent url', res);
       // No url and no stated reason: nothing useful to quote, so let the caller fall back.
       return { session: null, error: asNonEmptyString(asRecord(res).message) || undefined };
     }
     if (!requestId) {
       // Recoverable: the OAuth `state` in the URL is the same value, so fall back to it
       // rather than losing the id the callback is correlated by.
-      console.warn('DigiLocker: no requestId in response, falling back to state param');
+      traceWait('no requestId in the answer — falling back to the OAuth state parameter');
     }
 
     const session = {
       url,
       requestId: requestId || readStateFromUrl(url) || '',
+      aadhaarNumber: cleanAadhaar,
     };
-    console.log('[DigiLocker] session ready, url going to popup:', session.url, session);
+    trace('session ready', session);
     return { session };
   } catch (err) {
-    console.error('DigiLocker initiation failed: ', err);
+    traceStop('the request-digilocker call itself failed', err);
     // apiClient throws an Error whose message IS the backend's `message` field for any
     // non-2xx reply, so this is the rejection reason — not a generic network blip.
     // Its own fallbacks ("HTTP error! status: 500") say nothing to a customer, so those
@@ -259,7 +309,8 @@ export const readRedirectOrigin = (url: string): string | null => {
 // verified:false, so the flag — not the row, and not the number — is the signal.
 
 export interface AadhaarProfile {
-  // Only ever built from a record whose `verified` flag is true — see readAadhaarProfile.
+  // Only ever built from a record the backend has marked verified, or one whose
+  // e-Aadhaar it has actually fetched — see readAadhaarProfile.
   aadhaarNumber: string;
   // Optional: the backend may write the number before, or without, the name. The number
   // is what proves consent went through, so it alone decides success — the name is only
@@ -270,29 +321,158 @@ export interface AadhaarProfile {
 }
 
 /**
+ * Finds the aadhaarVerification record in a complete-profile response, wherever it sits.
+ *
+ * The endpoint has been seen answering `{ profile: { … } }` and `{ data: { profile: … } }`
+ * depending on the route, and a wrapper that does not match means every field below reads
+ * as missing — which looks exactly like "consent has not finished" and fails a
+ * verification that actually worked. Rather than hard-code one shape, the plausible
+ * wrappers are tried in order and the first one holding an aadhaarVerification wins.
+ */
+const locateVerification = (
+  res: unknown,
+): { profile: Record<string, unknown>; verification: Record<string, unknown> } => {
+  const root = asRecord(res);
+  const data = asRecord(root.data);
+
+  const candidates = [
+    asRecord(root.profile),
+    asRecord(data.profile),
+    data,
+    root,
+    asRecord(root.user),
+    asRecord(data.user),
+  ];
+
+  for (const profile of candidates) {
+    const verification = asRecord(profile.aadhaarVerification);
+    if (Object.keys(verification).length > 0) return { profile, verification };
+  }
+
+  // Nothing found: hand back the conventional shape so the caller reads empty and bails.
+  return { profile: asRecord(root.profile), verification: {} };
+};
+
+/**
+ * Evidence that DigiLocker actually handed the e-Aadhaar over for this person.
+ *
+ * Needed because the backend does not currently flip `verified` — it fetches the
+ * e-Aadhaar, writes the whole record (name, dob, gender, address, photo, and the
+ * `eAadhaarFetchedAt` timestamp) and leaves the flag sitting at false. Waiting on a flag
+ * that never turns true fails every verification, even the ones that worked.
+ *
+ * So the fetch itself is accepted as proof. This is NOT the old mistake of trusting the
+ * row: the row is created the moment request-digilocker is called, and at that point it
+ * holds the aadhaarNumber and nothing else. The fields read here cannot exist until
+ * DigiLocker has actually answered, so their presence means consent went through.
+ *
+ * `eAadhaarFetchedAt` is the field that says so outright; a name together with a date of
+ * birth is the fallback for a backend that stores the record without that timestamp.
+ * Only the verification record is read — never the profile, whose name and dob the
+ * customer may have typed in themselves.
+ */
+const readFetchedAt = (verification: Record<string, unknown>): string | null =>
+  asNonEmptyString(verification.eAadhaarFetchedAt) ||
+  asNonEmptyString(verification.eaadhaarFetchedAt) ||
+  asNonEmptyString(verification.e_aadhaar_fetched_at) ||
+  asNonEmptyString(verification.fetchedAt);
+
+const readFetchEvidence = (verification: Record<string, unknown>): string | null => {
+  const fetchedAt = readFetchedAt(verification);
+  if (fetchedAt) return `eAadhaarFetchedAt=${fetchedAt}`;
+
+  const name =
+    asNonEmptyString(verification.name) ||
+    asNonEmptyString(verification.aadhaarName) ||
+    asNonEmptyString(verification.nameAsPerAadhaar);
+  const dob = asNonEmptyString(verification.dob);
+  if (name && dob) return 'name+dob returned by DigiLocker';
+
+  return null;
+};
+
+/**
  * Pulls Aadhaar details out of a complete-profile response.
  *
- * `verified === true` is the ONLY success signal.
+ * Success is `verified === true`, or — while the backend leaves that flag alone — proof
+ * that the e-Aadhaar was actually fetched. See readFetchEvidence for why that is safe.
  *
- * The aadhaarNumber is NOT one: the backend creates the aadhaarVerification row the
- * moment request-digilocker is called, with the number already filled in and
- * `verified: false`. Treating the number as proof of consent matched on the very first
- * poll — closing the popup before the customer had signed in, and validating an Aadhaar
- * that DigiLocker had never confirmed. The flag is what flips when consent really lands.
+ * The aadhaarNumber on its own is NOT a success signal: the backend creates the
+ * aadhaarVerification row the moment request-digilocker is called, with the number
+ * already filled in and `verified: false`. Treating the number as proof of consent
+ * matched on the very first poll — closing the popup before the customer had signed in,
+ * and validating an Aadhaar that DigiLocker had never confirmed.
  */
-export const readAadhaarProfile = (res: unknown): AadhaarProfile | null => {
-  const profile = asRecord(asRecord(res).profile);
-  const verification = asRecord(profile.aadhaarVerification);
+/**
+ * Has the record moved on since the attempt began?
+ *
+ * Any of these means the backend wrote something new for this attempt: a different
+ * number than the one that was there, the verified flag flipping on, or a fresh
+ * e-Aadhaar fetch (a timestamp that differs from the one held at the start, including
+ * one appearing where there was none).
+ */
+const hasMovedSince = (
+  baseline: AadhaarSnapshot,
+  current: { aadhaarNumber: string; verification: Record<string, unknown> },
+): boolean => {
+  if (baseline.aadhaarNumber !== current.aadhaarNumber) return true;
+
+  const isVerified =
+    current.verification.verified === true ||
+    String(current.verification.verified).toLowerCase() === 'true';
+  if (isVerified && !baseline.verified) return true;
+
+  const fetchedAt = readFetchedAt(current.verification);
+  return Boolean(fetchedAt) && fetchedAt !== baseline.fetchedAt;
+};
+
+export const readAadhaarProfile = (
+  res: unknown,
+  { expectedAadhaar, baseline, requireChange = false }: AadhaarCheckOptions = {},
+): AadhaarProfile | null => {
+  const { profile, verification } = locateVerification(res);
 
   const aadhaarNumber = asNonEmptyString(verification.aadhaarNumber);
   if (!aadhaarNumber) return null;
+
+  // A record for some other number proves nothing about the one being verified now. This
+  // is the case that matters most: change the number in the form, press verify, and the
+  // previous number's record would otherwise pass this attempt instantly.
+  const wanted = String(expectedAadhaar ?? '').replace(/\D/g, '');
+  if (wanted && wanted !== aadhaarNumber.replace(/\D/g, '')) {
+    traceWait('the profile holds a DIFFERENT aadhaar number — ignoring that record', {
+      onProfile: aadhaarNumber,
+      beingVerified: wanted,
+    });
+    return null;
+  }
 
   // Accepts the boolean and the string form, since JSON from different backends differs.
   const isVerified =
     verification.verified === true || String(verification.verified).toLowerCase() === 'true';
 
   if (!isVerified) {
-    console.log('[DigiLocker] aadhaar row exists but verified=false — consent not finished yet');
+    const evidence = readFetchEvidence(verification);
+    if (!evidence) {
+      traceWait('the aadhaar row exists but nothing has been fetched yet — consent not finished');
+      return null;
+    }
+    // Worth shouting about: the backend has a record it never marked verified. The day it
+    // starts setting the flag this branch goes quiet on its own and nothing else changes.
+    trace(
+      'the backend never set verified=true, but the e-Aadhaar WAS fetched — accepting that as proof',
+      evidence,
+    );
+  }
+
+  // Nothing above can tell a record written a minute ago from one written last week. When
+  // the caller has no signal that the customer has finished, the record must have actually
+  // moved since this attempt began — otherwise the consent window is closed and the form
+  // says "verified" before the customer has even seen DigiLocker.
+  if (requireChange && baseline && !hasMovedSince(baseline, { aadhaarNumber, verification })) {
+    traceWait('the record has not moved since this attempt started — this is the OLD one, still waiting', {
+      baseline,
+    });
     return null;
   }
 
@@ -313,15 +493,118 @@ export const readAadhaarProfile = (res: unknown): AadhaarProfile | null => {
   };
 };
 
+/**
+ * DigiLocker's date of birth, as the form's YYYY-MM-DD.
+ *
+ * It arrives as DD/MM/YYYY: "05/07/1998" is the 5th of July. Handing that straight to
+ * `new Date` reads it as the American MM/DD/YYYY and silently stores the 7th of May,
+ * while "25/12/1998" is not a valid American date at all — `new Date` returns Invalid
+ * Date and the field is left blank with nothing to show for it. Either way the date of
+ * birth on the application is wrong, and it is the date the age eligibility check runs on.
+ *
+ * Returns null when the value cannot be read as a real calendar date, so the caller
+ * leaves the field alone rather than writing something made up.
+ */
+export const toIsoDate = (raw: unknown): string | null => {
+  const value = String(raw ?? '').trim();
+  if (!value) return null;
+
+  // Already YYYY-MM-DD, possibly with a time after it.
+  const iso = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ]|$)/);
+  if (iso) return isRealDate(+iso[1], +iso[2], +iso[3]) ? `${iso[1]}-${iso[2]}-${iso[3]}` : null;
+
+  // DD/MM/YYYY or DD-MM-YYYY, which is what DigiLocker sends.
+  const dmy = value.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (dmy) {
+    const [day, month, year] = [+dmy[1], +dmy[2], +dmy[3]];
+    if (!isRealDate(year, month, day)) return null;
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  }
+
+  return null;
+};
+
+// Rejects the 31st of February and friends, which a Date built from parts rolls over
+// into the next month instead of refusing.
+const isRealDate = (year: number, month: number, day: number): boolean => {
+  if (month < 1 || month > 12 || day < 1 || day > 31) return false;
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
+};
+
+/**
+ * What the Aadhaar record looked like BEFORE an attempt started.
+ *
+ * Taken the moment the consent window opens, and compared against every later read. The
+ * customer's profile usually already carries a record from an earlier attempt — the
+ * backend keeps it, flag and all — and without a baseline that old record satisfies the
+ * success check on the very first poll. The window then closes on its own and the form
+ * announces "verified" before the customer has typed anything into DigiLocker.
+ *
+ * Comparing against the baseline, rather than against a clock, is deliberate: the
+ * timestamp is written by the backend on its own clock, and a few minutes of skew either
+ * way would otherwise reject every genuine verification.
+ */
+export interface AadhaarSnapshot {
+  aadhaarNumber: string | null;
+  fetchedAt: string | null;
+  verified: boolean;
+}
+
+export const readAadhaarSnapshot = (res: unknown): AadhaarSnapshot => {
+  const { verification } = locateVerification(res);
+  return {
+    aadhaarNumber: asNonEmptyString(verification.aadhaarNumber),
+    fetchedAt: readFetchedAt(verification),
+    verified:
+      verification.verified === true ||
+      String(verification.verified).toLowerCase() === 'true',
+  };
+};
+
+/** Reads the baseline. Never throws — a failed read just means no baseline to compare. */
+export const captureAadhaarBaseline = async (): Promise<AadhaarSnapshot | null> => {
+  try {
+    const snapshot = readAadhaarSnapshot(await apiClient.getCompleteProfile());
+    trace('step 5/7 — baseline taken (what the profile held BEFORE this attempt)', snapshot);
+    return snapshot;
+  } catch (err) {
+    traceWait('could not read the baseline — an unchanged record will not be rejected', err);
+    return null;
+  }
+};
+
+export interface AadhaarCheckOptions {
+  /** The number this attempt is verifying. A record for any other number is ignored. */
+  expectedAadhaar?: string;
+  /** What the record looked like before the attempt; used to require a real change. */
+  baseline?: AadhaarSnapshot | null;
+  /**
+   * Whether the record must have CHANGED since the baseline.
+   *
+   * True for the checks that run on their own — the background poll and the focus check —
+   * because at that point nothing says the customer has finished, and an unchanged record
+   * is just the old one. False once something does say so: the callback announcing this
+   * attempt's requestId, or the customer pressing the button themselves.
+   */
+  requireChange?: boolean;
+}
+
 /** One profile read. Returns null when the Aadhaar is not on the profile yet. */
-export const checkAadhaarOnProfile = async (): Promise<AadhaarProfile | null> => {
+export const checkAadhaarOnProfile = async (
+  options: AadhaarCheckOptions = {},
+): Promise<AadhaarProfile | null> => {
   try {
     const res = await apiClient.getCompleteProfile();
-    const details = readAadhaarProfile(res);
-    console.log('[DigiLocker] complete-profile check:', details ?? 'no aadhaar details yet', res);
+    const details = readAadhaarProfile(res, options);
+    if (details) trace('profile check: usable aadhaar details found', details);
     return details;
   } catch (err) {
-    console.warn('[DigiLocker] complete-profile check failed', err);
+    traceWait('the complete-profile call failed — will try again', err);
     return null;
   }
 };
@@ -362,6 +645,7 @@ const isHidden = (): boolean =>
 export const pollForAadhaarDetails = async (
   isCancelled: () => boolean,
   onAttempt?: (attempt: number) => void,
+  options: AadhaarCheckOptions = {},
 ): Promise<AadhaarProfile | null> => {
   const startedAt = Date.now();
   const deadline = startedAt + POLL_TIMEOUT_MS;
@@ -369,23 +653,24 @@ export const pollForAadhaarDetails = async (
 
   while (Date.now() < deadline) {
     if (isCancelled()) {
-      console.log('[DigiLocker] profile polling cancelled');
+      trace('profile polling cancelled');
       return null;
     }
 
     attempt += 1;
     const elapsed = Date.now() - startedAt;
     const nextIn = isHidden() ? HIDDEN_POLL_INTERVAL_MS : pollIntervalFor(elapsed);
-    console.log(`[DigiLocker] profile poll #${attempt} (next in ${nextIn / 1000}s)`);
+    traceWait(`profile poll #${attempt} (next in ${nextIn / 1000}s)`);
     onAttempt?.(attempt);
-    const details = await checkAadhaarOnProfile();
+    // Runs with nothing to say the customer has finished, so it demands a real change.
+    const details = await checkAadhaarOnProfile({ ...options, requireChange: true });
     if (details) return details;
 
     if (isCancelled()) return null;
     await new Promise((resolve) => setTimeout(resolve, nextIn));
   }
 
-  console.warn('[DigiLocker] profile polling timed out — no aadhaar details after 5 minutes');
+  traceStop('profile polling timed out — nothing arrived in 5 minutes');
   return null;
 };
 
@@ -405,25 +690,27 @@ export const pollForAadhaarDetails = async (
  * arrive here in the same moment the backend is still saving. Resolves null when the flag
  * has not turned true within the window, which the caller treats as a failure.
  */
-const CONFIRM_TIMEOUT_MS = 30_000;
+export const CONFIRM_TIMEOUT_MS = 30_000;
 const CONFIRM_INTERVAL_MS = 2000;
 
 export const confirmAadhaarAfterSuccess = async (
   isCancelled: () => boolean = () => false,
+  timeoutMs: number = CONFIRM_TIMEOUT_MS,
+  options: AadhaarCheckOptions = {},
 ): Promise<AadhaarProfile | null> => {
-  const deadline = Date.now() + CONFIRM_TIMEOUT_MS;
+  const deadline = Date.now() + timeoutMs;
 
   while (Date.now() < deadline) {
     if (isCancelled()) return null;
 
-    const details = await checkAadhaarOnProfile();
+    const details = await checkAadhaarOnProfile(options);
     if (details) return details;
 
     if (isCancelled()) return null;
     await new Promise((resolve) => setTimeout(resolve, CONFIRM_INTERVAL_MS));
   }
 
-  console.warn('[DigiLocker] success was announced but the profile never confirmed it');
+  traceStop('success was announced but the profile never confirmed it within the window');
   return null;
 };
 
@@ -593,7 +880,7 @@ export const announceResult = (status: DigilockerStatus, requestId = ''): void =
     // ignored
   }
 
-  console.log('[DigiLocker] result announced to the application tab', payload);
+  trace('result announced to the application tab', payload);
 };
 
 /**
@@ -611,7 +898,7 @@ export const listenForResult = (onResult: (result: DigilockerResultBroadcast) =>
     if (done || !result) return;
     done = true;
     clearStoredResult();
-    console.log('[DigiLocker] result picked up from the consent tab', result);
+    trace('result picked up from the consent window', result);
     onResult(result);
   };
 

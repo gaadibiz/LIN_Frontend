@@ -14,17 +14,32 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button"
 import { Loader2, ShieldCheck, ExternalLink } from "lucide-react"
 import {
+  CONFIRM_TIMEOUT_MS,
+  captureAadhaarBaseline,
   checkAadhaarOnProfile,
   confirmAadhaarAfterSuccess,
   isProbablyMobile,
   listenForResult,
+  trace,
+  traceDone,
+  traceStop,
+  traceWait,
   pollForAadhaarDetails,
   readCompletionMessage,
   readRedirectOrigin,
+  type AadhaarCheckOptions,
   type AadhaarProfile,
+  type AadhaarSnapshot,
   type DigilockerSession,
   type DigilockerStatus,
 } from "@/lib/digilocker"
+
+// How long to keep checking the profile after each kind of hint. An announced success
+// gets the full window (CONFIRM_TIMEOUT_MS) because the backend is known to be mid-write.
+// The other two are the customer waiting in front of the form, so they are shorter — but
+// never a single read, which is what used to lose the race against the backend's write.
+const WINDOW_CLOSED_CONFIRM_MS = 20_000
+const MANUAL_CONFIRM_MS = 15_000
 
 interface DigilockerModalProps {
   // Null until the backend has answered with a url — nothing is shown speculatively.
@@ -48,10 +63,36 @@ export function DigilockerModal({ session, popup, onClose, onComplete, onReopen 
   const [popupClosed, setPopupClosed] = React.useState(false)
   // Shown in the panel, so it is visible whether the profile is actually being polled.
   const [pollAttempt, setPollAttempt] = React.useState(0)
-  const [isDeciding, setIsDeciding] = React.useState(false)
-  const decidingRef = React.useRef(false)
-  // True while an announced success is being checked against the profile.
+  // True while the profile is being checked, so the panel can say so instead of showing
+  // a spinner that looks identical to still waiting.
   const [isConfirming, setIsConfirming] = React.useState(false)
+  // A decision is already in flight. Not state: state would change `decide`'s identity
+  // and restart the watcher effect that calls it.
+  const decisionRef = React.useRef(false)
+
+  // What the Aadhaar record looked like before this attempt, and whether it has been read
+  // yet. Nothing may check the profile until it has: the customer's profile usually still
+  // carries the record from an earlier attempt, and without something to compare against
+  // that old record passes on the first poll — the consent window closes on its own and
+  // the form announces "verified" before DigiLocker has even been opened.
+  const baselineRef = React.useRef<AadhaarSnapshot | null>(null)
+  const [baselineReady, setBaselineReady] = React.useState(false)
+
+  // `decide` is tied to no props, so the current session reaches it through a ref.
+  const sessionRef = React.useRef(session)
+  React.useEffect(() => {
+    sessionRef.current = session
+  }, [session])
+
+  // The number and baseline every profile read is judged against.
+  const checkOptions = React.useCallback(
+    (requireChange: boolean): AadhaarCheckOptions => ({
+      expectedAadhaar: sessionRef.current?.aadhaarNumber,
+      baseline: baselineRef.current,
+      requireChange,
+    }),
+    [],
+  )
   // What the customer is actually looking at: a floating window on a desktop, a full tab
   // on a phone. Only the wording depends on it, and it is worked out after mount so the
   // server render and the first client render agree.
@@ -67,13 +108,12 @@ export function DigilockerModal({ session, popup, onClose, onComplete, onReopen 
     popupRef.current = popup
   }, [popup])
 
-  console.log('[DigiLocker] modal render, session =', session)
-
   const settle = React.useCallback(
     (status: DigilockerStatus, profile?: AadhaarProfile) => {
       if (settledRef.current) return
       settledRef.current = true
-      console.log('[DigiLocker] settled as:', status, profile ?? '')
+      if (status === "success") traceDone('VERIFIED — handing the details to the form', profile ?? '')
+      else traceStop('this attempt is being reported to the form as FAILED')
       onComplete(status, profile)
     },
     [onComplete],
@@ -90,56 +130,106 @@ export function DigilockerModal({ session, popup, onClose, onComplete, onReopen 
 
   React.useEffect(() => {
     if (!session) return
-    console.log('[DigiLocker] consent url handed to the popup:', session.url)
+    trace('step 5/7 — waiting panel open, consent window pointed at DigiLocker')
     settledRef.current = false
     setPopupClosed(false)
     setPollAttempt(0)
-    setIsDeciding(false)
     setIsConfirming(false)
-    decidingRef.current = false
+    decisionRef.current = false
+
+    let cancelled = false
+    baselineRef.current = null
+    setBaselineReady(false)
+    captureAadhaarBaseline().then((snapshot) => {
+      if (cancelled) return
+      baselineRef.current = snapshot
+      setBaselineReady(true)
+    })
+
+    return () => {
+      cancelled = true
+    }
   }, [session])
 
-  // What to do with an outcome announced by the callback page, however it reached us.
+  // The ONE place an attempt is decided, whatever prompted the look: the callback page
+  // announcing an outcome, the consent window closing, or the customer pressing "I have
+  // completed verification".
   //
-  // An announced success is a HINT, not the result. The backend cannot build a redirect
-  // per request — it is configured with two fixed urls, one per outcome — so nothing in
-  // the announcement ties it to this attempt, and any hit on the success url announces
-  // success. The profile is the record of what DigiLocker actually returned, so that is
-  // what decides; the announcement only says it is worth looking now.
+  // Every one of those is a HINT that it is worth checking, never the answer. An
+  // announced success proves nothing on its own — the backend is configured with two
+  // fixed callback urls, so anything that reaches the success url announces success. The
+  // profile is the backend's own record of what DigiLocker returned, so that decides.
   //
-  // A failure needs no confirming: nothing was written, and there is nothing to check.
-  const handleAnnouncedResult = React.useCallback((status: DigilockerStatus) => {
-    if (settledRef.current) return
+  // It is CHECKED REPEATEDLY, not once. The consent window now closes itself the moment
+  // the callback page loads, and that close fires the watcher below at almost the same
+  // instant the backend is still writing the record. A single read there loses the race
+  // and fails a verification that worked — which is exactly what was happening.
+  //
+  // `decisionRef` makes sure only one of these runs: the announcement and the window
+  // closing arrive together, and two overlapping checks would race each other instead.
+  const decide = React.useCallback(async (
+    reason: string,
+    timeoutMs: number,
+    requireChange: boolean,
+  ) => {
+    if (settledRef.current || decisionRef.current) return
+    decisionRef.current = true
+    setIsConfirming(true)
+    trace(`step 6/7 — deciding the attempt, prompted by: ${reason}`, {
+      willCheckProfileFor: `${timeoutMs / 1000}s`,
+      recordMustHaveChanged: requireChange,
+    })
 
-    // Either way the consent window has done its job. Closing it from here is the second
+    // The consent window has done its job either way. Closing it from here is the second
     // of the two ways a phone customer gets their screen back, the first being the
     // callback page closing itself.
     popupRef.current?.close()
 
-    if (status !== "success") {
+    const profile = await confirmAadhaarAfterSuccess(
+      () => settledRef.current,
+      timeoutMs,
+      checkOptions(requireChange),
+    )
+
+    setIsConfirming(false)
+    decisionRef.current = false
+    if (settledRef.current) return
+
+    if (!profile) {
+      traceStop(`nothing usable on the profile after ${reason} — failing the attempt`)
       settleRef.current("failed")
       return
     }
+    settleRef.current("success", profile)
+  }, [checkOptions])
 
-    setIsConfirming(true)
-    confirmAadhaarAfterSuccess(() => settledRef.current).then((profile) => {
+  // A failure needs no confirming: nothing was written, so there is nothing to check.
+  const handleAnnouncedResult = React.useCallback(
+    (status: DigilockerStatus) => {
       if (settledRef.current) return
-      setIsConfirming(false)
-      if (!profile) {
-        console.warn('[DigiLocker] announced success did not show up on the profile')
+      if (status !== "success") {
+        popupRef.current?.close()
         settleRef.current("failed")
         return
       }
-      settleRef.current("success", profile)
-    })
-  }, [])
+      // The requestId has already been matched against this attempt, so the record is
+      // not required to have visibly moved — the announcement is the proof it did.
+      decide("the callback announced success", CONFIRM_TIMEOUT_MS, false)
+    },
+    [decide],
+  )
 
-  // Held in a ref for the same reason settle is: the listeners below are tied to
+  // Held in refs for the same reason settle is: the listeners below are tied to
   // `session` alone and must not be torn down every time the parent re-renders.
   const announcedRef = React.useRef(handleAnnouncedResult)
   React.useEffect(() => {
     announcedRef.current = handleAnnouncedResult
   }, [handleAnnouncedResult])
+
+  const decideRef = React.useRef(decide)
+  React.useEffect(() => {
+    decideRef.current = decide
+  }, [decide])
 
   // The outcome. The backend redirects the popup to our own /digilocker/callback page,
   // which posts the result up through window.opener. There is no status endpoint to poll
@@ -147,7 +237,10 @@ export function DigilockerModal({ session, popup, onClose, onComplete, onReopen 
   React.useEffect(() => {
     if (!session) return
     const redirectOrigin = readRedirectOrigin(session.url)
-    console.log('[DigiLocker] accepting messages from:', window.location.origin, 'and', redirectOrigin)
+    trace('listening for the outcome', {
+      postMessageFrom: [window.location.origin, redirectOrigin],
+      broadcastRequestId: session.requestId || '(none — cannot correlate)',
+    })
 
     const handleMessage = (event: MessageEvent) => {
       // Our callback page is same-origin. The backend's origin is accepted too, in case
@@ -157,7 +250,7 @@ export function DigilockerModal({ session, popup, onClose, onComplete, onReopen 
       const status = readCompletionMessage(event.data)
       if (!status) return // unrelated traffic — React DevTools, extensions, widgets
 
-      console.log('[DigiLocker] result received', { origin: event.origin, data: event.data })
+      trace('outcome arrived by postMessage', { origin: event.origin, data: event.data })
       announcedRef.current(status)
     }
 
@@ -178,8 +271,25 @@ export function DigilockerModal({ session, popup, onClose, onComplete, onReopen 
   // callback page closing itself. Whichever wins, they land on the application again.
   React.useEffect(() => {
     if (!session) return
+    const expected = session.requestId
+
     return listenForResult((result) => {
-      console.log('[DigiLocker] broadcast result from the consent window:', result.status)
+      // The callback carries the requestId the backend put in the redirect. When both
+      // sides have one they must agree, so a result left over from an earlier attempt —
+      // or from another tab mid-verification — cannot settle this one. Either side
+      // missing it means there is nothing to compare, and the profile check that follows
+      // is the real gate anyway.
+      if (expected && result.requestId && expected !== result.requestId) {
+        traceWait('ignoring a result that belongs to a DIFFERENT attempt', {
+          expected,
+          received: result.requestId,
+        })
+        return
+      }
+
+      trace(`outcome arrived by broadcast: ${result.status}`, {
+        requestId: result.requestId || '(none)',
+      })
       announcedRef.current(result.status)
     })
   }, [session])
@@ -189,13 +299,15 @@ export function DigilockerModal({ session, popup, onClose, onComplete, onReopen 
   // the popup opens. Full details arriving means consent went through — the popup is
   // closed here and the form takes over.
   React.useEffect(() => {
-    if (!session) return
+    // Nothing may be read before the baseline is in hand — see baselineRef above.
+    if (!session || !baselineReady) return
 
     let cancelled = false
 
     pollForAadhaarDetails(
       () => cancelled || settledRef.current,
       setPollAttempt,
+      checkOptions(true),
     ).then((profile) => {
       if (cancelled || settledRef.current) return
 
@@ -203,13 +315,13 @@ export function DigilockerModal({ session, popup, onClose, onComplete, onReopen 
         // Ran out of time with no Aadhaar on the profile. Consent either never finished
         // or the backend never recorded it — either way this is not a verified Aadhaar,
         // so it fails rather than waiting on a spinner indefinitely.
-        console.warn('[DigiLocker] no aadhaar details found — failing the process')
+        traceStop('the 5-minute poll finished with nothing on the profile')
         popupRef.current?.close()
         settleRef.current("failed")
         return
       }
 
-      console.log('[DigiLocker] aadhaar details found on profile — closing the popup')
+      trace('the background poll found the details — closing the consent window')
       popupRef.current?.close()
       settleRef.current("success", profile)
     })
@@ -217,37 +329,13 @@ export function DigilockerModal({ session, popup, onClose, onComplete, onReopen 
     return () => {
       cancelled = true
     }
-  }, [session])
+  }, [session, baselineReady, checkOptions])
 
-  // The decision, as a single place both the popup-closed watcher and the "I have
-  // finished" button call.
-  //
-  //   verified === true  -> close the popup and let the form validate the Aadhaar
-  //   verified === false -> close the popup and tell the customer to verify again
-  //
-  // There is no third outcome: the customer has left DigiLocker, so the flag is final
-  // as far as this attempt is concerned.
-  const decideFromProfile = React.useCallback(async () => {
-    // Guarded by a ref, not by the isDeciding state: state would change this callback's
-    // identity and restart the watcher effect that calls it. The state exists only to
-    // put the button into its "Checking…" label.
-    if (settledRef.current || decidingRef.current) return
-    decidingRef.current = true
-    setIsDeciding(true)
-
-    const profile = await checkAadhaarOnProfile()
-    if (settledRef.current) return
-
-    popupRef.current?.close()
-
-    if (profile) {
-      console.log('[DigiLocker] verified — closing the popup and validating')
-      settleRef.current("success", profile)
-      return
-    }
-
-    console.warn('[DigiLocker] not verified — closing the popup, customer must verify again')
-    settleRef.current("failed")
+  // The customer says they are done. Shorter window than an announced success: they are
+  // sitting in front of the form waiting, and if the backend has written nothing by now
+  // it is not about to.
+  const decideFromProfile = React.useCallback(() => {
+    decideRef.current("the customer said they had finished", MANUAL_CONFIRM_MS, true)
   }, [])
 
   // Returning to this tab is the strongest hint that the customer has finished in the
@@ -258,10 +346,12 @@ export function DigilockerModal({ session, popup, onClose, onComplete, onReopen 
     if (!session) return
 
     const checkNow = () => {
-      if (document.visibilityState !== "visible" || settledRef.current) return
-      console.log('[DigiLocker] tab regained focus — checking the profile now')
-      checkAadhaarOnProfile().then((profile) => {
-        if (profile && !settledRef.current) {
+      if (document.visibilityState !== "visible" || settledRef.current || !baselineReady) return
+      traceWait('this tab regained focus — checking the profile once')
+      // A single read, and only ever to succeed early: coming back to this tab does not
+      // mean the customer finished, so nothing here may fail the attempt.
+      checkAadhaarOnProfile(checkOptions(true)).then((profile) => {
+        if (profile && !settledRef.current && !decisionRef.current) {
           popupRef.current?.close()
           settleRef.current("success", profile)
         }
@@ -274,7 +364,7 @@ export function DigilockerModal({ session, popup, onClose, onComplete, onReopen 
       window.removeEventListener("focus", checkNow)
       document.removeEventListener("visibilitychange", checkNow)
     }
-  }, [session])
+  }, [session, baselineReady, checkOptions])
 
   // A popup gives no "closed" event, so it has to be watched. Closing it without a result
   // is not treated as a failure — the user may have dismissed it by accident, so the
@@ -287,14 +377,18 @@ export function DigilockerModal({ session, popup, onClose, onComplete, onReopen 
       window.clearInterval(timer)
       if (settledRef.current) return
 
-      // The popup closing means the customer is done with DigiLocker one way or the
-      // other, so this check decides the outcome rather than going back to waiting.
-      console.log('[DigiLocker] popup closed — deciding on the profile')
-      decideFromProfile()
+      // The consent window closing means the customer is done with DigiLocker one way or
+      // the other, so this decides the outcome rather than going back to waiting.
+      //
+      // It must keep checking rather than read once: the callback page closes this window
+      // ITSELF the moment it loads, which is the same instant the backend is still writing
+      // the record. A single read here fails verifications that actually worked.
+      trace('the consent window closed')
+      decideRef.current("the consent window closed", WINDOW_CLOSED_CONFIRM_MS, true)
     }, 500)
 
     return () => window.clearInterval(timer)
-  }, [session, popup, decideFromProfile])
+  }, [session, popup])
 
   const needsAction = popupClosed || !popup
 
@@ -346,10 +440,10 @@ export function DigilockerModal({ session, popup, onClose, onComplete, onReopen 
               <Button
                 type="button"
                 onClick={decideFromProfile}
-                disabled={isDeciding}
+                disabled={isConfirming}
                 className="w-full h-11 rounded-xl bg-[#1c2b4f] hover:bg-[#16223f] text-white text-sm font-bold"
               >
-                {isDeciding ? "Checking…" : "I have completed verification"}
+                {isConfirming ? "Checking…" : "I have completed verification"}
               </Button>
               <button
                 type="button"
