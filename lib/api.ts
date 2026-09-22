@@ -525,6 +525,21 @@ class ApiClient {
     });
   }
 
+  // Email OTP
+  async requestEmailOtp(email: string): Promise<ApiResponse> {
+    return this.request<ApiResponse>('/api/auth/email/request-otp', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  }
+
+  async verifyEmailOtp(email: string, otp: string): Promise<ApiResponse> {
+    return this.request<ApiResponse>('/api/auth/email/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify({ email, otp }),
+    });
+  }
+
   // Utility methods
   setToken(token: string) {
     this.token = token;

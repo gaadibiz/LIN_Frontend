@@ -31,6 +31,10 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
   const [aadhaarStatus, setAadhaarStatus] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
   const [aadhaarError, setAadhaarError] = useState<string | null>(null);
   
+  const [emailStatus, setEmailStatus] = useState<'idle' | 'sending' | 'sent' | 'verifying' | 'verified'>('idle');
+  const [emailOtp, setEmailOtp] = useState("");
+  const [emailResendIn, setEmailResendIn] = useState(0);
+
   const [showNameMismatch, setShowNameMismatch] = useState(false);
   const [showAgeAlert, setShowAgeAlert] = useState(false);
 
@@ -66,6 +70,70 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
     if (isAgeBlocked) setShowAgeAlert(true);
   }, [isAgeBlocked, dateOfBirth]);
 
+  // last email the otp confirmed
+  const verifiedEmailRef = React.useRef<string | null>(null);
+  const email = watch("email");
+
+  React.useEffect(() => {
+    if (email === verifiedEmailRef.current) return;
+    verifiedEmailRef.current = null;
+    setEmailStatus('idle');
+    setEmailOtp("");
+  }, [email]);
+
+  React.useEffect(() => {
+    if (emailResendIn <= 0) return;
+    const timer = setTimeout(() => setEmailResendIn(emailResendIn - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [emailResendIn]);
+
+  const handleSendEmailOtp = async () => {
+    const address = String(watch("email") || "").trim();
+    if (!(await trigger("email"))) return;
+
+    setEmailStatus('sending');
+    try {
+      const { apiClient } = await import('@/lib/api');
+      await apiClient.requestEmailOtp(address);
+      setEmailStatus('sent');
+      setEmailOtp("");
+      setEmailResendIn(30);
+      toast.success("OTP sent to your email.");
+    } catch (e: any) {
+      setEmailStatus('idle');
+      toast.error(e.message || "Could not send the OTP. Please try again.");
+    }
+  };
+
+  const handleVerifyEmailOtp = async (otp: string) => {
+    const address = String(watch("email") || "").trim();
+    setEmailStatus('verifying');
+    try {
+      const { apiClient } = await import('@/lib/api');
+      await apiClient.verifyEmailOtp(address, otp);
+      verifiedEmailRef.current = address;
+      setEmailStatus('verified');
+      toast.success("Email verified.");
+    } catch (e: any) {
+      const msg = (e.message || '').toLowerCase();
+      // already done on the account, treat as ok
+      if (msg.includes('already verified')) {
+        verifiedEmailRef.current = address;
+        setEmailStatus('verified');
+        return;
+      }
+      setEmailStatus('sent');
+      setEmailOtp("");
+      toast.error(e.message || "Invalid OTP. Please try again.");
+    }
+  };
+
+  const handleEmailOtpChange = (val: string) => {
+    const digits = val.replace(/\D/g, '');
+    setEmailOtp(digits);
+    if (digits.length === 6) handleVerifyEmailOtp(digits);
+  };
+
   const handleFileChange = (field: keyof PersonalDetailsForm) => (file: File | null) => {
     if (file) setValue(field, file as any, { shouldValidate: true });
   };
@@ -95,6 +163,12 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
     }
 
     setShowNameMismatch(false);
+
+    // email must be the verified one
+    if (verifiedEmailRef.current !== String(data.email || '').trim()) {
+      toast.error("Please verify your email with the OTP before continuing.");
+      return;
+    }
 
     // Aadhaar gate. The submit button's `disabled` prop is a hint, not a guarantee —
     // it can be bypassed by a programmatic submit, or be a render behind the real
@@ -609,9 +683,54 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
           <label className="block text-sm font-bold text-[#1c2b4f] mb-2">Email ID <span className="text-red-500">*</span></label>
           <div className="relative">
             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-400" />
-            <Input {...register("email")} type="email" className="pl-10 h-11 border-gray-300 shadow-sm" placeholder="example@email.com" />
+            <Input
+              {...register("email")}
+              type="email"
+              className={`pl-10 pr-24 h-11 border-gray-300 shadow-sm ${emailStatus === 'verified' ? 'border-green-500 bg-green-50 text-green-700' : ''}`}
+              placeholder="example@email.com"
+              readOnly={emailStatus === 'verified'}
+            />
+            {emailStatus === 'verified' ? (
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center text-xs font-bold text-green-600">
+                <ShieldCheck className="w-4 h-4 mr-1" /> Verified
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSendEmailOtp}
+                disabled={emailStatus === 'sending' || emailStatus === 'verifying' || emailResendIn > 0}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-green-700 hover:underline disabled:text-gray-400 disabled:no-underline"
+              >
+                {emailStatus === 'sending' ? "Sending..." : emailResendIn > 0 ? `Resend in ${emailResendIn}s` : emailStatus === 'sent' ? "Resend OTP" : "Verify"}
+              </button>
+            )}
           </div>
           {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email.message}</p>}
+
+          {(emailStatus === 'sent' || emailStatus === 'verifying') && (
+            <div className="mt-2">
+              <InputOTP
+                maxLength={6}
+                value={emailOtp}
+                inputMode="numeric"
+                pattern="^[0-9]*$"
+                onChange={handleEmailOtpChange}
+                containerClassName="justify-between w-full gap-1"
+              >
+                <InputOTPGroup className="flex-1">
+                  <InputOTPSlot index={0} className="w-full h-10 text-sm" />
+                  <InputOTPSlot index={1} className="w-full h-10 text-sm" />
+                  <InputOTPSlot index={2} className="w-full h-10 text-sm" />
+                  <InputOTPSlot index={3} className="w-full h-10 text-sm" />
+                  <InputOTPSlot index={4} className="w-full h-10 text-sm" />
+                  <InputOTPSlot index={5} className="w-full h-10 text-sm" />
+                </InputOTPGroup>
+              </InputOTP>
+              <p className="text-[11px] text-gray-500 mt-1 font-medium">
+                {emailStatus === 'verifying' ? "Verifying OTP..." : "Enter the 6-digit OTP sent to your email."}
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -926,7 +1045,7 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
         <Button
           type="submit"
           className="w-full bg-[#c81e1e] hover:bg-red-700 text-white h-14 rounded-xl text-lg font-bold shadow-md transition-all"
-          disabled={isLoading || !isValid || isAgeBlocked || digilockerStatus !== 'verified' || aadhaarStatus !== 'valid'}
+          disabled={isLoading || !isValid || isAgeBlocked || emailStatus !== 'verified' || digilockerStatus !== 'verified' || aadhaarStatus !== 'valid'}
         >
           {isLoading ? "Submitting..." : "Review & Submit Application"}
         </Button>
