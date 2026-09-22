@@ -680,17 +680,17 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
           {errors.dateOfBirth && <p className={cn('text-red-500', 'text-sm', 'mt-1')}>{errors.dateOfBirth.message}</p>}
         </div>
 
-        {/* <div className="w-full">
+        <div className="w-full">
           <label className={cn('block', 'text-sm', 'font-bold', 'text-[#1c2b4f]', 'mb-2')}>Email ID <span className="text-red-500">*</span></label>
           <div className="relative">
             <Mail className={cn('absolute', 'left-3', 'top-1/2', '-translate-y-1/2', 'w-4', 'h-4', 'text-blue-400')} />
             <Input
               {...register("email")}
               type="email"
-              className={`pl-10 pr-24 h-11 border-gray-300 shadow-sm ${emailStatus === 'verified' ? 'border-green-500 bg-green-50 text-green-700' : ''}`}
+              className="pl-10 h-11 border-gray-300 shadow-sm"
               placeholder="example@email.com"
-              readOnly={emailStatus === 'verified'}
             />
+            {/* Email verification disabled — Verify button hidden
             {emailStatus === 'verified' ? (
               <span className={cn('absolute', 'right-3', 'top-1/2', '-translate-y-1/2', 'flex', 'items-center', 'text-xs', 'font-bold', 'text-green-600')}>
                 <ShieldCheck className={cn('w-4', 'h-4', 'mr-1')} /> Verified
@@ -705,9 +705,11 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
                 {emailStatus === 'sending' ? "Sending..." : emailResendIn > 0 ? `Resend in ${emailResendIn}s` : emailStatus === 'sent' ? "Resend OTP" : "Verify"}
               </button>
             )}
+            */}
           </div>
           {errors.email && <p className={cn('text-red-500', 'text-sm', 'mt-1')}>{errors.email.message}</p>}
 
+          {/* Email OTP input disabled
           {(emailStatus === 'sent' || emailStatus === 'verifying') && (
             <div className="mt-2">
               <InputOTP
@@ -732,7 +734,8 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
               </p>
             </div>
           )}
-        </div> */}
+          */}
+        </div>
       </div>
 
       {/* Aadhaar row */}
@@ -786,12 +789,12 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
                     Verifying Aadhaar...
                   </div>
                 )}
-                {/* {aadhaarStatus === 'valid' && (
+                {aadhaarStatus === 'valid' && (
                   <div className={cn('flex', 'items-center', 'gap-2', 'mt-2', 'text-sm', 'text-green-600', 'font-medium')}>
                     <svg className={cn('w-4', 'h-4')} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
                     Aadhaar verified successfully!
                   </div>
-                )} */}
+                )}
               </div>
             );
           }}

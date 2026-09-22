@@ -100,7 +100,7 @@ export const personalDetailsSchema = z.object({
     // the eligibility gate rather than a typo guard. Step 2 also blocks submission
     // with a popup so the applicant sees why they can't proceed.
     .refine(isAgeEligible, `Age must be between ${MIN_ELIGIBLE_AGE} and ${MAX_ELIGIBLE_AGE} years`),
-  email: z.string().optional(), // email verification disabled — any string or empty is accepted
+   email: z.string().email("Please enter a valid email address"),// email verification disabled — any string or empty is accepted
   aadhaarNumber: z.string().length(12, "oops invalid Aadhaar number").regex(/^\d{12}$/, "oops invalid Aadhaar number"),
   aadhaarName: z.string().min(2, "Name as per Aadhaar is required"),
   // Optional address details, asked here so the applicant can supply them up front
