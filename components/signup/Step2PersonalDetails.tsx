@@ -165,11 +165,11 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
 
     setShowNameMismatch(false);
 
-    // email must be the verified one
-    if (verifiedEmailRef.current !== String(data.email || '').trim()) {
-      toast.error("Please verify your email with the OTP before continuing.");
-      return;
-    }
+    // email must be the verified one — DISABLED: email verification is optional
+    // if (verifiedEmailRef.current !== String(data.email || '').trim()) {
+    //   toast.error("Please verify your email with the OTP before continuing.");
+    //   return;
+    // }
 
     // Aadhaar gate. The submit button's `disabled` prop is a hint, not a guarantee —
     // it can be bypassed by a programmatic submit, or be a render behind the real
