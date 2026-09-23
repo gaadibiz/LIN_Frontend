@@ -1178,14 +1178,14 @@ function DashboardContent() {
                   {loan.number}
                 </p>
               </div>
-              <div className="space-y-1">
+              {/* <div className="space-y-1">
                 <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider">
                   Amount
                 </p>
                 <p className="text-[18px] font-extrabold text-[#111827]">
                   {loan.amount}
                 </p>
-              </div>
+              </div> */}
               <div className="space-y-1">
                 <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider">
                   Status
