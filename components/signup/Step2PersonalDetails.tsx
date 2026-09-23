@@ -854,25 +854,22 @@ export function Step2PersonalDetails({ onSubmit, onGoToDashboard, formData, setF
         {errors.aadhaarName && <p className={cn('text-red-500', 'text-sm', 'mt-1')}>{errors.aadhaarName.message}</p>}
       </div>
 
-      {/* Current address details — every field here is optional. The applicant can skip the
-          whole section and still submit; it exists so the address is on file early when
-          they do fill it in. Nothing in this block is wired into the submit button's
-          guard. It is sent to the KYC API (POST /api/kyc) as currentAddress / currentCity /
+      {/* Current address details — present address (addressLine) is mandatory to proceed.
+          It is sent to the KYC API (POST /api/kyc) as currentAddress / currentCity /
           currentState / currentPostalCode — see withCurrentAddress in hooks/useSignup.ts. */}
       <div className={cn('pt-4', 'border-t', 'border-gray-100')}>
         <div className={cn('flex', 'items-start', 'space-x-3', 'mb-4')}>
           <MapPin className={cn('w-6', 'h-6', 'text-blue-600', 'mt-1')} />
           <div>
             <h2 className={cn('text-[17px]', 'font-bold', 'text-[#1c2b4f]')}>
-              Current address details <span className={cn('text-gray-400', 'font-medium', 'text-[13px]')}>(optional)</span>
+              Current address details <span className={cn('text-gray-400', 'font-medium', 'text-[13px]')}>(Address is mandatory to proceed)</span>
             </h2>
-            <p className={cn('text-xs', 'text-gray-500', 'font-medium')}>You can skip this and add it later.</p>
           </div>
         </div>
 
         <div className={cn('grid', 'grid-cols-1', 'md:grid-cols-2', 'gap-4')}>
           <div className="md:col-span-2">
-            <label className={cn('block', 'text-sm', 'font-bold', 'text-[#1c2b4f]', 'mb-2')}>Address</label>
+            <label className={cn('block', 'text-sm', 'font-bold', 'text-[#1c2b4f]', 'mb-2')}>Present Address <span className="text-red-500">*</span></label>
             <Input
               {...register("addressLine")}
               className={cn('h-11', 'border-gray-300', 'shadow-sm', 'focus-visible:ring-blue-500')}
