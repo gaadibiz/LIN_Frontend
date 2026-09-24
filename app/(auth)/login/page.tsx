@@ -283,11 +283,11 @@ function LoginForm() {
                     />
                     <label htmlFor="consent" className="text-sm text-gray-600">
                       By continuing, you agree to our{" "}
-                      <a href="#" className="text-red-600 hover:underline">privacy policies</a>{" "}
+                      <a href="/privacy-policy" className="text-red-600 hover:underline">privacy policies</a>{" "}
                       and{" "}
-                      <a href="#" className="text-red-600 hover:underline">T&C</a>.
+                      <a href="/terms-conditions" className="text-red-600 hover:underline">T&C</a>.
                       You also authorize us to{" "}
-                      <a href="#" className="text-red-600 hover:underline">retrieve</a>{" "}
+                      <a href="/contact-us" className="text-red-600 hover:underline">retrieve</a>{" "}
                       & communicate with you via phone, e-mails, WhatsApp, etc.
                     </label>
                   </div>
