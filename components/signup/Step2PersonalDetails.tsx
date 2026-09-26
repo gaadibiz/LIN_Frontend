@@ -138,13 +138,50 @@ export function Step2PersonalDetails({
     if (isAgeBlocked) setShowAgeAlert(true);
   }, [isAgeBlocked, dateOfBirth]);
 
-  // last email the otp confirmed
-  const verifiedEmailRef = React.useRef<string | null>(null);
+  // Track all emails verified by OTP or backend profile in this component's lifecycle
+  const verifiedEmailsRef = React.useRef<Set<string>>(new Set());
   const email = watch("email");
 
+  // Fetch backend profile on mount to restore email verified status after page refresh
   React.useEffect(() => {
-    if (email === verifiedEmailRef.current) return;
-    verifiedEmailRef.current = null;
+    let isMounted = true;
+    (async () => {
+      try {
+        const { apiClient } = await import("@/lib/api");
+        const res = await apiClient.getCompleteProfile();
+        const profile =
+          res?.profile || (res as any)?.data?.profile || (res as any)?.data;
+        if (profile?.email && profile?.emailVerified) {
+          const verifiedEmail = String(profile.email).trim().toLowerCase();
+          verifiedEmailsRef.current.add(verifiedEmail);
+          if (isMounted) {
+            const currentInput = String(watch("email") || "")
+              .trim()
+              .toLowerCase();
+            if (currentInput === verifiedEmail) {
+              setEmailStatus("verified");
+              setShowEmailOtp(false);
+              setEmailOtp("");
+            }
+          }
+        }
+      } catch (err) {
+        // Silent catch if user profile isn't available yet
+      }
+    })();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  React.useEffect(() => {
+    const normalized = String(email || "").trim().toLowerCase();
+    if (normalized && verifiedEmailsRef.current.has(normalized)) {
+      setEmailStatus("verified");
+      setShowEmailOtp(false);
+      setEmailOtp("");
+      return;
+    }
     setEmailStatus("idle");
     setEmailOtp("");
     setShowEmailOtp(false);
@@ -170,6 +207,14 @@ export function Step2PersonalDetails({
       setEmailResendIn(30);
       toast.success("OTP sent to your email.");
     } catch (e: any) {
+      const msg = (e.message || "").toLowerCase();
+      if (msg.includes("already verified")) {
+        verifiedEmailsRef.current.add(address.toLowerCase());
+        setEmailStatus("verified");
+        setShowEmailOtp(false);
+        toast.success("Email is already verified.");
+        return;
+      }
       setEmailStatus("idle");
       setShowEmailOtp(false);
       toast.error(e.message || "Could not send the OTP. Please try again.");
@@ -178,11 +223,12 @@ export function Step2PersonalDetails({
 
   const handleVerifyEmailOtp = async (otp: string) => {
     const address = String(watch("email") || "").trim();
+    const normalized = address.toLowerCase();
     setEmailStatus("verifying");
     try {
       const { apiClient } = await import("@/lib/api");
       await apiClient.verifyEmailOtp(address, otp);
-      verifiedEmailRef.current = address;
+      verifiedEmailsRef.current.add(normalized);
       setEmailStatus("verified");
       toast.success("Email verified.");
       setTimeout(() => setShowEmailOtp(false), 2000);
@@ -190,7 +236,7 @@ export function Step2PersonalDetails({
       const msg = (e.message || "").toLowerCase();
       // already done on the account, treat as ok
       if (msg.includes("already verified")) {
-        verifiedEmailRef.current = address;
+        verifiedEmailsRef.current.add(normalized);
         setEmailStatus("verified");
         setTimeout(() => setShowEmailOtp(false), 2000);
         return;
@@ -246,7 +292,7 @@ export function Step2PersonalDetails({
     setShowNameMismatch(false);
 
     // email must be the verified one — DISABLED: email verification is optional
-    // if (verifiedEmailRef.current !== String(data.email || '').trim()) {
+    // if (!verifiedEmailsRef.current.has(String(data.email || '').trim().toLowerCase())) {
     //   toast.error("Please verify your email with the OTP before continuing.");
     //   return;
     // }
@@ -1178,29 +1224,51 @@ export function Step2PersonalDetails({
         </div>
 
         <div className="w-full">
-          <div className={cn("flex", "justify-between", "items-center", "mb-2")}>
+          <div
+            className={cn("flex", "justify-between", "items-center", "mb-2")}
+          >
             <label
-              className={cn(
-                "block",
-                "text-sm",
-                "font-bold",
-                "text-[#1c2b4f]"
-              )}
+              className={cn("block", "text-sm", "font-bold", "text-[#1c2b4f]")}
             >
               Email ID <span className="text-red-500">*</span>
             </label>
-            {emailStatus === 'verified' ? (
-              <span className={cn('flex', 'items-center', 'text-xs', 'font-bold', 'text-green-600')}>
-                <ShieldCheck className={cn('w-4', 'h-4', 'mr-1')} /> Verified
+            {emailStatus === "verified" ? (
+              <span
+                className={cn(
+                  "flex",
+                  "items-center",
+                  "text-xs",
+                  "font-bold",
+                  "text-green-600",
+                )}
+              >
+                <ShieldCheck className={cn("w-4", "h-4", "mr-1")} /> Verified
               </span>
             ) : (
               <button
                 type="button"
                 onClick={handleSendEmailOtp}
-                disabled={emailStatus === 'sending' || emailStatus === 'verifying' || emailResendIn > 0}
-                className={cn('text-xs', 'font-bold', 'text-green-700', 'hover:underline', 'disabled:text-gray-400', 'disabled:no-underline')}
+                disabled={
+                  emailStatus === "sending" ||
+                  emailStatus === "verifying" ||
+                  emailResendIn > 0
+                }
+                className={cn(
+                  "text-xs",
+                  "font-bold",
+                  "text-green-700",
+                  "hover:underline",
+                  "disabled:text-gray-400",
+                  "disabled:no-underline",
+                )}
               >
-                {emailStatus === 'sending' ? "Sending..." : emailResendIn > 0 ? `Resend in ${emailResendIn}s` : emailStatus === 'sent' ? "Resend OTP" : "Verify"}
+                {emailStatus === "sending"
+                  ? "Sending..."
+                  : emailResendIn > 0
+                    ? `Resend in ${emailResendIn}s`
+                    : emailStatus === "sent"
+                      ? "Resend OTP"
+                      : "Verify"}
               </button>
             )}
           </div>
@@ -1232,7 +1300,9 @@ export function Step2PersonalDetails({
           <div
             className={cn(
               "transition-all duration-500 ease-in-out overflow-hidden",
-              showEmailOtp ? "max-h-[120px] opacity-100 mt-2 translate-y-0" : "max-h-0 opacity-0 mt-0 -translate-y-4"
+              showEmailOtp
+                ? "max-h-[120px] opacity-100 mt-2 translate-y-0"
+                : "max-h-0 opacity-0 mt-0 -translate-y-4",
             )}
           >
             <div>
@@ -1243,7 +1313,9 @@ export function Step2PersonalDetails({
                 pattern="^[0-9]*$"
                 onChange={handleEmailOtpChange}
                 containerClassName="justify-between w-full gap-1"
-                disabled={emailStatus === "verifying" || emailStatus === "verified"}
+                disabled={
+                  emailStatus === "verifying" || emailStatus === "verified"
+                }
               >
                 <InputOTPGroup className="flex-1">
                   {[0, 1, 2, 3, 4, 5].map((index) => (
@@ -1254,7 +1326,7 @@ export function Step2PersonalDetails({
                         "w-full h-10 text-sm transition-colors duration-200 !ring-0 data-[active=true]:!ring-0 data-[active=true]:border-blue-500",
                         emailStatus === "verified"
                           ? "border-green-500 bg-green-50 text-green-700 ring-green-400"
-                          : ""
+                          : "",
                       )}
                     />
                   ))}
@@ -1263,7 +1335,9 @@ export function Step2PersonalDetails({
               <p
                 className={cn(
                   "text-[11px] mt-1 font-medium",
-                  emailStatus === "verified" ? "text-green-600" : "text-gray-500"
+                  emailStatus === "verified"
+                    ? "text-green-600"
+                    : "text-gray-500",
                 )}
               >
                 {emailStatus === "verified"
