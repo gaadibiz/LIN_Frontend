@@ -40,7 +40,13 @@ import {
   FileX2,
   Bookmark,
   RefreshCw,
+  ShieldCheck,
 } from "lucide-react";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from "@/components/ui/input-otp";
 import { useSignup } from "@/hooks/useSignup";
 import { useScrollToTop } from "@/hooks/useScrollToTop";
 import { Step0EligibilityCheck } from "@/components/signup/Step0EligibilityCheck";
@@ -507,6 +513,99 @@ function DashboardContent() {
     { id: "addr_3", label: "Permanent address", value: "Not added" },
   ]);
 
+  // Email Verification State for Dashboard Personal Details section
+  const verifiedEmailsRef = React.useRef<Set<string>>(new Set());
+  const [userEmail, setUserEmail] = React.useState("");
+  const [emailStatus, setEmailStatus] = React.useState<
+    "idle" | "sending" | "sent" | "verifying" | "verified"
+  >("idle");
+  const [emailOtp, setEmailOtp] = React.useState("");
+  const [emailResendIn, setEmailResendIn] = React.useState(0);
+  const [showEmailOtp, setShowEmailOtp] = React.useState(false);
+
+  React.useEffect(() => {
+    if (emailResendIn <= 0) return;
+    const timer = setTimeout(() => setEmailResendIn(emailResendIn - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [emailResendIn]);
+
+  React.useEffect(() => {
+    const normalized = userEmail.trim().toLowerCase();
+    if (normalized && verifiedEmailsRef.current.has(normalized)) {
+      setEmailStatus("verified");
+      setShowEmailOtp(false);
+      setEmailOtp("");
+      return;
+    }
+    setEmailStatus("idle");
+    setEmailOtp("");
+    setShowEmailOtp(false);
+  }, [userEmail]);
+
+  const handleSendEmailOtp = async () => {
+    const address = userEmail.trim();
+    if (!address || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) {
+      toast.error("Please enter a valid email address.");
+      return;
+    }
+
+    setEmailStatus("sending");
+    setShowEmailOtp(true);
+    try {
+      const { apiClient } = await import("@/lib/api");
+      await apiClient.requestEmailOtp(address);
+      setEmailStatus("sent");
+      setEmailOtp("");
+      setEmailResendIn(30);
+      toast.success("OTP sent to your email.");
+    } catch (e: any) {
+      const msg = (e.message || "").toLowerCase();
+      if (msg.includes("already verified")) {
+        verifiedEmailsRef.current.add(address.toLowerCase());
+        setEmailStatus("verified");
+        setShowEmailOtp(false);
+        toast.success("Email is already verified.");
+        return;
+      }
+      setEmailStatus("idle");
+      setShowEmailOtp(false);
+      toast.error(e.message || "Could not send the OTP. Please try again.");
+    }
+  };
+
+  const handleVerifyEmailOtp = async (otp: string) => {
+    const address = userEmail.trim();
+    const normalized = address.toLowerCase();
+    setEmailStatus("verifying");
+    try {
+      const { apiClient } = await import("@/lib/api");
+      await apiClient.verifyEmailOtp(address, otp);
+      verifiedEmailsRef.current.add(normalized);
+      setEmailStatus("verified");
+      toast.success("Email verified successfully.");
+      setTimeout(() => setShowEmailOtp(false), 2000);
+    } catch (e: any) {
+      const msg = (e.message || "").toLowerCase();
+      if (msg.includes("already verified")) {
+        verifiedEmailsRef.current.add(normalized);
+        setEmailStatus("verified");
+        setTimeout(() => setShowEmailOtp(false), 2000);
+        return;
+      }
+      setEmailStatus("sent");
+      setEmailOtp("");
+      toast.error(e.message || "Invalid OTP. Please try again.");
+    }
+  };
+
+  const handleEmailOtpChange = (val: string) => {
+    const digits = val.replace(/\D/g, "");
+    setEmailOtp(digits);
+    if (digits.length === 6) {
+      handleVerifyEmailOtp(digits);
+    }
+  };
+
   // State for real loan history already declared above
 
   // Fetch data on mount
@@ -572,6 +671,15 @@ function DashboardContent() {
               locked: true,
             },
           ]);
+
+          if (p.email) {
+            const emailAddr = String(p.email).trim();
+            setUserEmail(emailAddr);
+            if (p.emailVerified) {
+              verifiedEmailsRef.current.add(emailAddr.toLowerCase());
+              setEmailStatus("verified");
+            }
+          }
 
           if (p.employment) {
             const incomeVal = p.employment.monthlyIncome;
@@ -915,6 +1023,111 @@ function DashboardContent() {
               </div>
             </div>
           ))}
+
+          {/* Email ID Field with Verification System */}
+          <div className="space-y-2.5">
+            <div className="flex justify-between items-center px-1">
+              <label className="text-[15px] font-medium text-[#111827] block">
+                Email ID
+              </label>
+              {emailStatus === "verified" ? (
+                <span className="flex items-center text-xs font-bold text-green-600 bg-green-50 px-2.5 py-1 rounded-full border border-green-200">
+                  <ShieldCheck className="w-4 h-4 mr-1 shrink-0 text-green-600" />
+                  Verified
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSendEmailOtp}
+                  disabled={
+                    emailStatus === "sending" ||
+                    emailStatus === "verifying" ||
+                    emailResendIn > 0
+                  }
+                  className="text-xs font-bold text-green-700 hover:underline disabled:text-gray-400 disabled:no-underline cursor-pointer"
+                >
+                  {emailStatus === "sending"
+                    ? "Sending..."
+                    : emailResendIn > 0
+                      ? `Resend in ${emailResendIn}s`
+                      : emailStatus === "sent"
+                        ? "Resend OTP"
+                        : "Verify"}
+                </button>
+              )}
+            </div>
+            <div className="relative group">
+              <input
+                type="email"
+                value={userEmail}
+                onChange={(e) => setUserEmail(e.target.value)}
+                placeholder="Enter email address"
+                className={`w-full rounded-2xl px-6 py-4 font-medium outline-none transition-all pr-12 ${
+                  emailStatus === "verified"
+                    ? "bg-[#F3F4F6] border-none text-gray-500 cursor-default"
+                    : "bg-white border border-gray-300 text-gray-900 focus:border-red-500 focus:ring-2 focus:ring-red-100"
+                }`}
+                readOnly={emailStatus === "verified"}
+              />
+              <div className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400">
+                {emailStatus === "verified" ? (
+                  <Lock size={18} />
+                ) : (
+                  <Mail size={18} />
+                )}
+              </div>
+            </div>
+
+            {/* OTP verification input container */}
+            <div
+              className={`transition-all duration-500 ease-in-out overflow-hidden ${
+                showEmailOtp
+                  ? "max-h-[140px] opacity-100 mt-3 translate-y-0"
+                  : "max-h-0 opacity-0 mt-0 -translate-y-4"
+              }`}
+            >
+              <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 space-y-2">
+                <InputOTP
+                  maxLength={6}
+                  value={emailOtp}
+                  inputMode="numeric"
+                  pattern="^[0-9]*$"
+                  onChange={handleEmailOtpChange}
+                  containerClassName="justify-between w-full gap-2"
+                  disabled={
+                    emailStatus === "verifying" || emailStatus === "verified"
+                  }
+                >
+                  <InputOTPGroup className="flex-1 gap-1">
+                    {[0, 1, 2, 3, 4, 5].map((index) => (
+                      <InputOTPSlot
+                        key={index}
+                        index={index}
+                        className={`w-full h-11 text-base transition-colors duration-200 bg-white rounded-lg border-gray-300 !ring-0 data-[active=true]:!ring-0 data-[active=true]:border-red-500 ${
+                          emailStatus === "verified"
+                            ? "border-green-500 bg-green-50 text-green-700"
+                            : ""
+                        }`}
+                      />
+                    ))}
+                  </InputOTPGroup>
+                </InputOTP>
+                <p
+                  className={`text-xs font-medium ${
+                    emailStatus === "verified"
+                      ? "text-green-600"
+                      : "text-gray-500"
+                  }`}
+                >
+                  {emailStatus === "verified"
+                    ? "OTP verified successfully!"
+                    : emailStatus === "verifying"
+                      ? "Verifying OTP..."
+                      : "Enter the 6-digit OTP sent to your email."}
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
