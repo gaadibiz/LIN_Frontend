@@ -7,9 +7,12 @@
 // profile, so it only knows what /api/users/profile/complete returns; the backend must
 // reject a submission inside the window too, for anything that bypasses this UI.
 
-import { getSubmittedApplications, type ApplicationLike } from "./application-status";
+import {
+  getSubmittedApplications,
+  type ApplicationLike,
+} from "./application-status";
 
-export const REAPPLY_COOLDOWN_DAYS = 15;
+export const REAPPLY_COOLDOWN_DAYS = 0;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -40,8 +43,12 @@ export class ReapplyCooldownError extends Error {
   }
 }
 
-export function isRejectedApplication(application: RejectableApplication | null | undefined): boolean {
-  const status = String(application?.status ?? "").trim().toUpperCase();
+export function isRejectedApplication(
+  application: RejectableApplication | null | undefined,
+): boolean {
+  const status = String(application?.status ?? "")
+    .trim()
+    .toUpperCase();
   return status === "REJECTED" || status === "DECLINED";
 }
 
@@ -54,7 +61,9 @@ function parseDate(value: unknown): Date | null {
 // When the rejection happened. The backend may or may not stamp the status change, so
 // createdAt is the last resort — a rejected row with no timestamp at all still enforces
 // a cooldown, just measured from when the application was filed.
-export function getRejectionDate(application: RejectableApplication | null | undefined): Date | null {
+export function getRejectionDate(
+  application: RejectableApplication | null | undefined,
+): Date | null {
   if (!application) return null;
   return (
     parseDate(application.rejectedAt) ??
@@ -66,16 +75,25 @@ export function getRejectionDate(application: RejectableApplication | null | und
 
 // The active block, or null when the user is free to apply. The most recent rejection
 // governs: an older one that has already expired cannot re-block anybody.
-export function getReapplyBlock(applications: unknown, now: Date = new Date()): ReapplyBlock | null {
-  const rejections = getSubmittedApplications<RejectableApplication>(applications)
+export function getReapplyBlock(
+  applications: unknown,
+  now: Date = new Date(),
+): ReapplyBlock | null {
+  const rejections = getSubmittedApplications<RejectableApplication>(
+    applications,
+  )
     .filter(isRejectedApplication)
     .map(getRejectionDate)
     .filter((date): date is Date => date !== null);
 
   if (rejections.length === 0) return null;
 
-  const rejectedOn = new Date(Math.max(...rejections.map(date => date.getTime())));
-  const reapplyFrom = new Date(rejectedOn.getTime() + REAPPLY_COOLDOWN_DAYS * DAY_MS);
+  const rejectedOn = new Date(
+    Math.max(...rejections.map((date) => date.getTime())),
+  );
+  const reapplyFrom = new Date(
+    rejectedOn.getTime() + REAPPLY_COOLDOWN_DAYS * DAY_MS,
+  );
 
   if (now.getTime() >= reapplyFrom.getTime()) return null;
 
@@ -83,19 +101,29 @@ export function getReapplyBlock(applications: unknown, now: Date = new Date()): 
     rejectedOn,
     reapplyFrom,
     // Part of a day still counts as a day left to wait, so this never reads "0 days".
-    daysRemaining: Math.max(1, Math.ceil((reapplyFrom.getTime() - now.getTime()) / DAY_MS)),
+    daysRemaining: Math.max(
+      1,
+      Math.ceil((reapplyFrom.getTime() - now.getTime()) / DAY_MS),
+    ),
   };
 }
 
 export function formatCooldownDate(date: Date): string {
-  return date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 export function reapplyBlockMessage(block: ReapplyBlock): string {
-  const days = block.daysRemaining === 1 ? "1 day" : `${block.daysRemaining} days`;
-  return `Your previous loan application was rejected on ${formatCooldownDate(block.rejectedOn)}. `
-    + `As per our credit policy a new application can be submitted only after ${REAPPLY_COOLDOWN_DAYS} days, `
-    + `so you can apply again from ${formatCooldownDate(block.reapplyFrom)} (${days} to go).`;
+  const days =
+    block.daysRemaining === 1 ? "1 day" : `${block.daysRemaining} days`;
+  return (
+    `Your previous loan application was rejected on ${formatCooldownDate(block.rejectedOn)}. ` +
+    `As per our credit policy a new application can be submitted only after ${REAPPLY_COOLDOWN_DAYS} days, ` +
+    `so you can apply again from ${formatCooldownDate(block.reapplyFrom)} (${days} to go).`
+  );
 }
 
 // Checks the cooldown for whoever the stored auth token belongs to — i.e. the phone number
@@ -114,13 +142,21 @@ export async function getReapplyBlockForCurrentUser(): Promise<ReapplyBlock | nu
 
   try {
     const { config } = await import("./config");
-    const response = await fetch(`${config.apiUrl.replace(/\/+$/, "")}/api/users/profile/complete`, {
-      method: "GET",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    });
+    const response = await fetch(
+      `${config.apiUrl.replace(/\/+$/, "")}/api/users/profile/complete`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      },
+    );
     if (!response.ok) return null;
 
-    const body = (await response.json()) as { profile?: { loanApplications?: unknown } } | null;
+    const body = (await response.json()) as {
+      profile?: { loanApplications?: unknown };
+    } | null;
     return getReapplyBlock(body?.profile?.loanApplications);
   } catch (error) {
     console.error("Could not check the reapply cooldown", error);
