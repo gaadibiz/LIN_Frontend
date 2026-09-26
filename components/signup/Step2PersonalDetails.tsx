@@ -89,6 +89,7 @@ export function Step2PersonalDetails({
   >("idle");
   const [emailOtp, setEmailOtp] = useState("");
   const [emailResendIn, setEmailResendIn] = useState(0);
+  const [showEmailOtp, setShowEmailOtp] = useState(false);
 
   const [showNameMismatch, setShowNameMismatch] = useState(false);
   const [showAgeAlert, setShowAgeAlert] = useState(false);
@@ -146,6 +147,7 @@ export function Step2PersonalDetails({
     verifiedEmailRef.current = null;
     setEmailStatus("idle");
     setEmailOtp("");
+    setShowEmailOtp(false);
   }, [email]);
 
   React.useEffect(() => {
@@ -159,6 +161,7 @@ export function Step2PersonalDetails({
     if (!(await trigger("email"))) return;
 
     setEmailStatus("sending");
+    setShowEmailOtp(true);
     try {
       const { apiClient } = await import("@/lib/api");
       await apiClient.requestEmailOtp(address);
@@ -168,6 +171,7 @@ export function Step2PersonalDetails({
       toast.success("OTP sent to your email.");
     } catch (e: any) {
       setEmailStatus("idle");
+      setShowEmailOtp(false);
       toast.error(e.message || "Could not send the OTP. Please try again.");
     }
   };
@@ -181,12 +185,14 @@ export function Step2PersonalDetails({
       verifiedEmailRef.current = address;
       setEmailStatus("verified");
       toast.success("Email verified.");
+      setTimeout(() => setShowEmailOtp(false), 2000);
     } catch (e: any) {
       const msg = (e.message || "").toLowerCase();
       // already done on the account, treat as ok
       if (msg.includes("already verified")) {
         verifiedEmailRef.current = address;
         setEmailStatus("verified");
+        setTimeout(() => setShowEmailOtp(false), 2000);
         return;
       }
       setEmailStatus("sent");
@@ -1172,17 +1178,32 @@ export function Step2PersonalDetails({
         </div>
 
         <div className="w-full">
-          <label
-            className={cn(
-              "block",
-              "text-sm",
-              "font-bold",
-              "text-[#1c2b4f]",
-              "mb-2",
+          <div className={cn("flex", "justify-between", "items-center", "mb-2")}>
+            <label
+              className={cn(
+                "block",
+                "text-sm",
+                "font-bold",
+                "text-[#1c2b4f]"
+              )}
+            >
+              Email ID <span className="text-red-500">*</span>
+            </label>
+            {emailStatus === 'verified' ? (
+              <span className={cn('flex', 'items-center', 'text-xs', 'font-bold', 'text-green-600')}>
+                <ShieldCheck className={cn('w-4', 'h-4', 'mr-1')} /> Verified
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSendEmailOtp}
+                disabled={emailStatus === 'sending' || emailStatus === 'verifying' || emailResendIn > 0}
+                className={cn('text-xs', 'font-bold', 'text-green-700', 'hover:underline', 'disabled:text-gray-400', 'disabled:no-underline')}
+              >
+                {emailStatus === 'sending' ? "Sending..." : emailResendIn > 0 ? `Resend in ${emailResendIn}s` : emailStatus === 'sent' ? "Resend OTP" : "Verify"}
+              </button>
             )}
-          >
-            Email ID <span className="text-red-500">*</span>
-          </label>
+          </div>
           <div className="relative">
             <Mail
               className={cn(
@@ -1201,22 +1222,6 @@ export function Step2PersonalDetails({
               className="pl-10 h-11 border-gray-300 shadow-sm"
               placeholder="example@email.com"
             />
-            {/* Email verification disabled — Verify button hidden
-            {emailStatus === 'verified' ? (
-              <span className={cn('absolute', 'right-3', 'top-1/2', '-translate-y-1/2', 'flex', 'items-center', 'text-xs', 'font-bold', 'text-green-600')}>
-                <ShieldCheck className={cn('w-4', 'h-4', 'mr-1')} /> Verified
-              </span>
-            ) : (
-              <button
-                type="button"
-                onClick={handleSendEmailOtp}
-                disabled={emailStatus === 'sending' || emailStatus === 'verifying' || emailResendIn > 0}
-                className={cn('absolute', 'right-3', 'top-1/2', '-translate-y-1/2', 'text-xs', 'font-bold', 'text-green-700', 'hover:underline', 'disabled:text-gray-400', 'disabled:no-underline')}
-              >
-                {emailStatus === 'sending' ? "Sending..." : emailResendIn > 0 ? `Resend in ${emailResendIn}s` : emailStatus === 'sent' ? "Resend OTP" : "Verify"}
-              </button>
-            )}
-            */}
           </div>
           {errors.email && (
             <p className={cn("text-red-500", "text-sm", "mt-1")}>
@@ -1224,9 +1229,13 @@ export function Step2PersonalDetails({
             </p>
           )}
 
-          {/* Email OTP input disabled
-          {(emailStatus === 'sent' || emailStatus === 'verifying') && (
-            <div className="mt-2">
+          <div
+            className={cn(
+              "transition-all duration-500 ease-in-out overflow-hidden",
+              showEmailOtp ? "max-h-[120px] opacity-100 mt-2 translate-y-0" : "max-h-0 opacity-0 mt-0 -translate-y-4"
+            )}
+          >
+            <div>
               <InputOTP
                 maxLength={6}
                 value={emailOtp}
@@ -1234,22 +1243,37 @@ export function Step2PersonalDetails({
                 pattern="^[0-9]*$"
                 onChange={handleEmailOtpChange}
                 containerClassName="justify-between w-full gap-1"
+                disabled={emailStatus === "verifying" || emailStatus === "verified"}
               >
                 <InputOTPGroup className="flex-1">
-                  <InputOTPSlot index={0} className={cn('w-full', 'h-10', 'text-sm')} />
-                  <InputOTPSlot index={1} className={cn('w-full', 'h-10', 'text-sm')} />
-                  <InputOTPSlot index={2} className={cn('w-full', 'h-10', 'text-sm')} />
-                  <InputOTPSlot index={3} className={cn('w-full', 'h-10', 'text-sm')} />
-                  <InputOTPSlot index={4} className={cn('w-full', 'h-10', 'text-sm')} />
-                  <InputOTPSlot index={5} className={cn('w-full', 'h-10', 'text-sm')} />
+                  {[0, 1, 2, 3, 4, 5].map((index) => (
+                    <InputOTPSlot
+                      key={index}
+                      index={index}
+                      className={cn(
+                        "w-full h-10 text-sm transition-colors duration-200 !ring-0 data-[active=true]:!ring-0 data-[active=true]:border-blue-500",
+                        emailStatus === "verified"
+                          ? "border-green-500 bg-green-50 text-green-700 ring-green-400"
+                          : ""
+                      )}
+                    />
+                  ))}
                 </InputOTPGroup>
               </InputOTP>
-              <p className={cn('text-[11px]', 'text-gray-500', 'mt-1', 'font-medium')}>
-                {emailStatus === 'verifying' ? "Verifying OTP..." : "Enter the 6-digit OTP sent to your email."}
+              <p
+                className={cn(
+                  "text-[11px] mt-1 font-medium",
+                  emailStatus === "verified" ? "text-green-600" : "text-gray-500"
+                )}
+              >
+                {emailStatus === "verified"
+                  ? "OTP verified successfully!"
+                  : emailStatus === "verifying"
+                    ? "Verifying OTP..."
+                    : "Enter the 6-digit OTP sent to your email."}
               </p>
             </div>
-          )}
-          */}
+          </div>
         </div>
       </div>
 
