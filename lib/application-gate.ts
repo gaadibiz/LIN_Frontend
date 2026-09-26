@@ -50,9 +50,15 @@ export const IN_PROCESS_LABEL = "In Process";
 // tab lists exactly the applications the dashboard shows as "Disbursed" or "Completed".
 const REPAYABLE_STATUSES = new Set(["DISBURSED", "COMPLETED"]);
 
-export function isRepayableApplication(application: GateApplication | null | undefined): boolean {
+export function isRepayableApplication(
+  application: GateApplication | null | undefined,
+): boolean {
   if (!application) return false;
-  return REPAYABLE_STATUSES.has(String(application.status ?? "").trim().toUpperCase());
+  return REPAYABLE_STATUSES.has(
+    String(application.status ?? "")
+      .trim()
+      .toUpperCase(),
+  );
 }
 
 // A loan that ran its full course and is finished. Reloan is offered on the strength of a
@@ -61,14 +67,22 @@ export function isRepayableApplication(application: GateApplication | null | und
 // offered Reapply instead — same form, but it is a fresh application, not a repeat one.
 const COMPLETED_STATUSES = new Set(["COMPLETED", "CLOSED", "SETTLED"]);
 
-export function isCompletedApplication(application: GateApplication | null | undefined): boolean {
+export function isCompletedApplication(
+  application: GateApplication | null | undefined,
+): boolean {
   if (!application) return false;
-  return COMPLETED_STATUSES.has(String(application.status ?? "").trim().toUpperCase());
+  return COMPLETED_STATUSES.has(
+    String(application.status ?? "")
+      .trim()
+      .toUpperCase(),
+  );
 }
 
 // True when the profile carries at least one finished loan, i.e. the user qualifies for Reloan.
 export function hasCompletedApplication(applications: unknown): boolean {
-  return getSubmittedApplications<GateApplication>(applications).some(isCompletedApplication);
+  return getSubmittedApplications<GateApplication>(applications).some(
+    isCompletedApplication,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -87,7 +101,7 @@ export function hasCompletedApplication(applications: unknown): boolean {
 // Both are the frontend half of the rule. The backend must enforce the same thing for
 // anything that bypasses this UI.
 
-export const REAPPLY_AFTER_DAYS = 15;
+export const REAPPLY_AFTER_DAYS = 0;
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
@@ -116,23 +130,34 @@ const parseDate = (value: unknown): Date | null => {
 };
 
 export function formatApplicationDate(date: Date): string {
-  return date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 // Newest first, so the panel lists the most recent application at the top.
 const byNewest = (applications: GateApplication[]): GateApplication[] =>
   [...applications].sort(
     (a, b) =>
-      (parseDate(b.createdAt)?.getTime() ?? 0) - (parseDate(a.createdAt)?.getTime() ?? 0),
+      (parseDate(b.createdAt)?.getTime() ?? 0) -
+      (parseDate(a.createdAt)?.getTime() ?? 0),
   );
 
 // The application the customer filed most recently, or null if they never filed one.
-export function getLatestApplication(applications: unknown): GateApplication | null {
-  const submitted = byNewest(getSubmittedApplications<GateApplication>(applications));
+export function getLatestApplication(
+  applications: unknown,
+): GateApplication | null {
+  const submitted = byNewest(
+    getSubmittedApplications<GateApplication>(applications),
+  );
   return submitted[0] ?? null;
 }
 
-export function getApplicationDate(application: GateApplication | null | undefined): Date | null {
+export function getApplicationDate(
+  application: GateApplication | null | undefined,
+): Date | null {
   return parseDate(application?.createdAt);
 }
 
@@ -157,7 +182,9 @@ export function getReapplyEligibilityBlock(
       title: `You can apply again after ${REAPPLY_COOLDOWN_DAYS} days`,
       message: reapplyBlockMessage(cooldown),
       applications: byNewest(
-        getSubmittedApplications<GateApplication>(applications).filter(isRejectedApplication),
+        getSubmittedApplications<GateApplication>(applications).filter(
+          isRejectedApplication,
+        ),
       ),
       availableFrom: cooldown.reapplyFrom,
       daysRemaining: cooldown.daysRemaining,
@@ -168,7 +195,9 @@ export function getReapplyEligibilityBlock(
   const appliedOn = getApplicationDate(latest);
   if (!latest || !appliedOn) return null; // Never applied: nothing to wait for.
 
-  const availableFrom = new Date(appliedOn.getTime() + REAPPLY_AFTER_DAYS * DAY_IN_MS);
+  const availableFrom = new Date(
+    appliedOn.getTime() + REAPPLY_AFTER_DAYS * DAY_IN_MS,
+  );
   if (now.getTime() >= availableFrom.getTime()) return null;
 
   const daysRemaining = daysUntil(availableFrom, now);
@@ -176,9 +205,9 @@ export function getReapplyEligibilityBlock(
     kind: "reapply-wait",
     title: `You can reapply after ${REAPPLY_AFTER_DAYS} days`,
     message:
-      `You submitted your last loan application on ${formatApplicationDate(appliedOn)}. `
-      + `A new application can be submitted ${REAPPLY_AFTER_DAYS} days after the previous one, `
-      + `so you can reapply from ${formatApplicationDate(availableFrom)}.`,
+      `You submitted your last loan application on ${formatApplicationDate(appliedOn)}. ` +
+      `A new application can be submitted ${REAPPLY_AFTER_DAYS} days after the previous one, ` +
+      `so you can reapply from ${formatApplicationDate(availableFrom)}.`,
     applications: [latest],
     availableFrom,
     daysRemaining,
@@ -192,7 +221,9 @@ export function getReapplyEligibilityBlock(
  * have one application or several. A customer with no completed loan has nothing to
  * reloan against and is pointed at Reapply instead.
  */
-export function getReloanEligibilityBlock(applications: unknown): EligibilityBlock | null {
+export function getReloanEligibilityBlock(
+  applications: unknown,
+): EligibilityBlock | null {
   const submitted = getSubmittedApplications<GateApplication>(applications);
   const inProcess = byNewest(submitted.filter(isInProcessApplication));
 
@@ -204,10 +235,10 @@ export function getReloanEligibilityBlock(applications: unknown): EligibilityBlo
         ? "Your loan applications are still in process"
         : "Your loan application is still in process",
       message: many
-        ? `You have ${inProcess.length} loan applications still being processed. A reloan can `
-          + "be taken once all of them have been completed."
-        : "Our team is still processing the loan application you have already submitted. "
-          + "A reloan can be taken once it has been completed.",
+        ? `You have ${inProcess.length} loan applications still being processed. A reloan can ` +
+          "be taken once all of them have been completed."
+        : "Our team is still processing the loan application you have already submitted. " +
+          "A reloan can be taken once it has been completed.",
       applications: inProcess,
     };
   }
@@ -217,8 +248,8 @@ export function getReloanEligibilityBlock(applications: unknown): EligibilityBlo
       kind: "no-completed-loan",
       title: "A reloan needs a completed loan",
       message:
-        "A reloan is available once you have completed a loan with us. Until then, please "
-        + "use Reapply to submit a new loan application.",
+        "A reloan is available once you have completed a loan with us. Until then, please " +
+        "use Reapply to submit a new loan application.",
       applications: byNewest(submitted).slice(0, 1),
     };
   }
@@ -226,22 +257,32 @@ export function getReloanEligibilityBlock(applications: unknown): EligibilityBlo
   return null;
 }
 
-export function isInProcessApplication(application: GateApplication | null | undefined): boolean {
+export function isInProcessApplication(
+  application: GateApplication | null | undefined,
+): boolean {
   if (!application) return false;
-  const status = String(application.status ?? "").trim().toUpperCase();
+  const status = String(application.status ?? "")
+    .trim()
+    .toUpperCase();
   return !DECIDED_STATUSES.has(status);
 }
 
 // The undecided application holding the applicant up, newest first, or null if none.
-export function getInProcessApplication(applications: unknown): GateApplication | null {
-  const open = getSubmittedApplications<GateApplication>(applications).filter(isInProcessApplication);
-  if (open.length === 0) return null;
+export function getInProcessApplication(
+  applications: unknown,
+): GateApplication | null {
+  const open = getSubmittedApplications<GateApplication>(applications).filter(
+    isInProcessApplication,
+  );
+  // this reapply function  is commented now to open the reapply form  infinitely.
+  // if (open.length === 0)
+  return null;
 
-  return open.reduce((latest, application) => {
-    const a = new Date(String(application.createdAt ?? 0)).getTime() || 0;
-    const b = new Date(String(latest.createdAt ?? 0)).getTime() || 0;
-    return a > b ? application : latest;
-  });
+  // return open.reduce((latest, application) => {
+  //   const a = new Date(String(application.createdAt ?? 0)).getTime() || 0;
+  //   const b = new Date(String(latest.createdAt ?? 0)).getTime() || 0;
+  //   return a > b ? application : latest;
+  // });
 }
 
 export type ApplicationBlock =
@@ -250,7 +291,10 @@ export type ApplicationBlock =
 
 // In process wins over the cooldown: an open case is the more immediate reason, and an
 // applicant with one is being worked on right now rather than waiting out a rejection.
-export function getApplicationBlock(applications: unknown, now: Date = new Date()): ApplicationBlock | null {
+export function getApplicationBlock(
+  applications: unknown,
+  now: Date = new Date(),
+): ApplicationBlock | null {
   const inProcess = getInProcessApplication(applications);
   if (inProcess) {
     const applied = new Date(String(inProcess.createdAt ?? ""));
@@ -267,12 +311,16 @@ export function getApplicationBlock(applications: unknown, now: Date = new Date(
 
 export function applicationBlockMessage(block: ApplicationBlock): string {
   if (block.kind === "cooldown") return reapplyBlockMessage(block.cooldown);
-  return "Your existing loan application is still in process. A new application can be "
-    + "submitted once the current one has been completed.";
+  return (
+    "Your existing loan application is still in process. A new application can be " +
+    "submitted once the current one has been completed."
+  );
 }
 
 // Turns a raw backend status into something readable — "IN_PROCESS" -> "In Process".
-export function formatApplicationStatus(status: string | null | undefined): string {
+export function formatApplicationStatus(
+  status: string | null | undefined,
+): string {
   const raw = String(status ?? "").trim();
   if (!raw) return IN_PROCESS_LABEL;
 
@@ -281,7 +329,7 @@ export function formatApplicationStatus(status: string | null | undefined): stri
 
   return upper
     .split(/[_\s]+/)
-    .map(word => word.charAt(0) + word.slice(1).toLowerCase())
+    .map((word) => word.charAt(0) + word.slice(1).toLowerCase())
     .join(" ");
 }
 
@@ -307,16 +355,27 @@ export async function getApplicationBlockForCurrentUser(): Promise<ApplicationBl
 
   try {
     const { config } = await import("./config");
-    const response = await fetch(`${config.apiUrl.replace(/\/+$/, "")}/api/users/profile/complete`, {
-      method: "GET",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    });
+    const response = await fetch(
+      `${config.apiUrl.replace(/\/+$/, "")}/api/users/profile/complete`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      },
+    );
     if (!response.ok) return null;
 
-    const body = (await response.json()) as { profile?: { loanApplications?: unknown } } | null;
+    const body = (await response.json()) as {
+      profile?: { loanApplications?: unknown };
+    } | null;
     return getApplicationBlock(body?.profile?.loanApplications);
   } catch (error) {
-    console.error("Could not check whether a new application is allowed", error);
+    console.error(
+      "Could not check whether a new application is allowed",
+      error,
+    );
     return null;
   }
 }

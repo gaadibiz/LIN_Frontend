@@ -280,7 +280,7 @@ function ReloanFlow() {
           <Check className="w-10 h-10 text-[#4ade80]" strokeWidth={4} />
         </div>
         <h3 className="text-2xl font-bold text-[#14532d] mb-3">
-          Reloan Successful!
+          Reapply Successful!
         </h3>
         <p className="font-medium text-gray-600 mb-6">
           Your new loan application has been submitted.
@@ -428,7 +428,9 @@ function DashboardContent() {
   // Reloan is earned by a finished loan; Reapply by waiting out the 15-day gap. Both rules
   // are computed from the applications themselves, so the raw list is kept here. It stays
   // null until the profile arrives, which is what tells the two tabs "not known yet".
-  const [loanApplications, setLoanApplications] = React.useState<unknown[] | null>(null);
+  const [loanApplications, setLoanApplications] = React.useState<
+    unknown[] | null
+  >(null);
   // Reference numbers in the eligibility notice are built from this, exactly as Loan
   // History builds its own — the same application must read the same in both places.
   const [profileAadhaar, setProfileAadhaar] = React.useState<string>("");
@@ -461,11 +463,13 @@ function DashboardContent() {
   // from the applications on the profile, and stay null while it is still being fetched —
   // the pane shows a loading line then, rather than a form or a refusal it cannot justify.
   const reapplyBlock = React.useMemo(
-    () => (loanApplications ? getReapplyEligibilityBlock(loanApplications) : null),
+    () =>
+      loanApplications ? getReapplyEligibilityBlock(loanApplications) : null,
     [loanApplications],
   );
   const reloanBlock = React.useMemo(
-    () => (loanApplications ? getReloanEligibilityBlock(loanApplications) : null),
+    () =>
+      loanApplications ? getReloanEligibilityBlock(loanApplications) : null,
     [loanApplications],
   );
 
@@ -562,7 +566,9 @@ function DashboardContent() {
               // Shown to the customer the same way the PAN is. Masked to the last 4
               // digits — a full Aadhaar must not be displayed back.
               label: "Aadhaar",
-              value: maskAadhaar(p.aadhaarVerification?.aadhaarNumber) || "Not Verified",
+              value:
+                maskAadhaar(p.aadhaarVerification?.aadhaarNumber) ||
+                "Not Verified",
               locked: true,
             },
           ]);
@@ -1393,7 +1399,9 @@ function DashboardContent() {
   // Both tabs open the same form — the heading says which of the two the customer is doing.
   // When they are not eligible the form is replaced, in this same pane, by the reason: the
   // applications holding them up, each with its status and the date it was filed.
-  const renderApplyAgainContent = (mode: typeof REAPPLY_TAB | typeof RELOAN_TAB) => {
+  const renderApplyAgainContent = (
+    mode: typeof REAPPLY_TAB | typeof RELOAN_TAB,
+  ) => {
     const isReloan = mode === RELOAN_TAB;
     const block = isReloan ? reloanBlock : reapplyBlock;
 
