@@ -146,7 +146,7 @@ export function Step6PhotoGPS({
               checked={autoDetectLocation}
               onChange={(e) => handleLocationToggle(e.target.checked)}
               disabled={isLoadingLocation}
-              className="rounded border-gray-300 text-red-600 focus:ring-red-500 disabled:opacity-50"
+              className="h-4 w-4 min-w-4 min-h-4 shrink-0 rounded border-gray-300 text-red-600 accent-red-600 focus:ring-red-500 disabled:opacity-50 cursor-pointer"
             />
             <span className="text-sm font-medium text-gray-700">
               Auto-detect location *

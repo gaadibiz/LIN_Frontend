@@ -2023,10 +2023,15 @@ export function Step2PersonalDetails({
                 "mt-1",
                 "h-4",
                 "w-4",
+                "min-w-4",
+                "min-h-4",
+                "shrink-0",
                 "rounded",
                 "border-gray-300",
                 "text-red-600",
+                "accent-red-600",
                 "focus:ring-red-500",
+                "cursor-pointer"
               )}
             />
             <span className={cn("text-sm", "text-gray-700", "leading-relaxed")}>
@@ -2074,10 +2079,15 @@ export function Step2PersonalDetails({
                 "mt-1",
                 "h-4",
                 "w-4",
+                "min-w-4",
+                "min-h-4",
+                "shrink-0",
                 "rounded",
                 "border-gray-300",
                 "text-red-600",
+                "accent-red-600",
                 "focus:ring-red-500",
+                "cursor-pointer"
               )}
             />
             <span className={cn("text-sm", "text-gray-700", "leading-relaxed")}>
