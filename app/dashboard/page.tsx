@@ -1405,15 +1405,15 @@ function DashboardContent() {
                   {loan.amount}
                 </p>
               </div> */}
-              <div className="space-y-1">
+              {/* <div className="space-y-1">
                 <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider">
                   Status
                 </p>
-                {/* Every card here is a disbursed or completed loan, so one look fits both. */}
+                Every card here is a disbursed or completed loan, so one look fits both.
                 <span className="inline-block text-[11px] px-3 py-1 rounded-full font-bold uppercase tracking-wider bg-emerald-100 text-emerald-700">
                   {formatApplicationStatus(loan.status)}
                 </span>
-              </div>
+              </div> */}
               {/* Repayment QR and bank details are withheld until the correct
                   collection account is provided. Nothing here may show a QR, a UPI
                   ID or an account number in the meantime. */}
