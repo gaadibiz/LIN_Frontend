@@ -107,15 +107,15 @@ export function Step4DocumentVerification({
         </p>
 
         <div className="flex items-start space-x-3">
-          <Input
+          <input
             type="checkbox"
             id="consent"
-            className="mt-1 h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+            className="mt-1 h-4 w-4 min-w-4 min-h-4 shrink-0 rounded border-gray-300 text-red-600 accent-red-600 focus:ring-red-500 cursor-pointer"
             checked={consentChecked}
             onChange={(e) => setConsentChecked(e.target.checked)}
             required
           />
-          <label htmlFor="consent" className="text-xs text-gray-500">
+          <label htmlFor="consent" className="text-xs text-gray-500 cursor-pointer select-none">
             By continuing, you agree to our{" "}
             <a href="#" className="text-red-600 hover:underline">privacy policies</a>{" "}
             and{" "}
