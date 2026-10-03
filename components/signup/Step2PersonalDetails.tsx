@@ -175,7 +175,9 @@ export function Step2PersonalDetails({
   }, []);
 
   React.useEffect(() => {
-    const normalized = String(email || "").trim().toLowerCase();
+    const normalized = String(email || "")
+      .trim()
+      .toLowerCase();
     if (normalized && verifiedEmailsRef.current.has(normalized)) {
       setEmailStatus("verified");
       setShowEmailOtp(false);
@@ -1230,7 +1232,7 @@ export function Step2PersonalDetails({
             <label
               className={cn("block", "text-sm", "font-bold", "text-[#1c2b4f]")}
             >
-              Email ID <span className="text-red-500">*</span>
+              Professional Email (Official) <span className="text-red-500">*</span>
             </label>
             {emailStatus === "verified" ? (
               <span
@@ -1288,7 +1290,7 @@ export function Step2PersonalDetails({
               {...register("email")}
               type="email"
               className="pl-10 h-11 border-gray-300 shadow-sm"
-              placeholder="example@email.com"
+              placeholder="name@company.com"
             />
           </div>
           {errors.email && (
@@ -2031,7 +2033,7 @@ export function Step2PersonalDetails({
                 "text-red-600",
                 "accent-red-600",
                 "focus:ring-red-500",
-                "cursor-pointer"
+                "cursor-pointer",
               )}
             />
             <span className={cn("text-sm", "text-gray-700", "leading-relaxed")}>
@@ -2087,7 +2089,7 @@ export function Step2PersonalDetails({
                 "text-red-600",
                 "accent-red-600",
                 "focus:ring-red-500",
-                "cursor-pointer"
+                "cursor-pointer",
               )}
             />
             <span className={cn("text-sm", "text-gray-700", "leading-relaxed")}>

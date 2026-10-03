@@ -4,7 +4,7 @@
 import React, { Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { useAffiliate } from "@/hooks/useAffiliate";
-import { formatAppNumber, maskAadhaar } from "@/lib/utils";
+import { formatAppNumber, maskAadhaar, isOfficialEmail } from "@/lib/utils";
 import { getSubmittedApplications } from "@/lib/application-status";
 import {
   getApplicationBlock,
@@ -548,6 +548,10 @@ function DashboardContent() {
       toast.error("Please enter a valid email address.");
       return;
     }
+    if (!isOfficialEmail(address)) {
+      toast.error("Please enter an official work email address (personal emails like Gmail, Yahoo, etc. are not allowed).");
+      return;
+    }
 
     setEmailStatus("sending");
     setShowEmailOtp(true);
@@ -1028,7 +1032,7 @@ function DashboardContent() {
           <div className="space-y-2.5">
             <div className="flex justify-between items-center px-1">
               <label className="text-[15px] font-medium text-[#111827] block">
-                Email ID
+                Professional Email (Official)
               </label>
               {emailStatus === "verified" ? (
                 <span className="flex items-center text-xs font-bold text-green-600 bg-green-50 px-2.5 py-1 rounded-full border border-green-200">
@@ -1061,7 +1065,7 @@ function DashboardContent() {
                 type="email"
                 value={userEmail}
                 onChange={(e) => setUserEmail(e.target.value)}
-                placeholder="Enter email address"
+                placeholder="name@company.com"
                 className={`w-full rounded-2xl px-6 py-4 font-medium outline-none transition-all pr-12 ${
                   emailStatus === "verified"
                     ? "bg-[#F3F4F6] border-none text-gray-500 cursor-default"
@@ -1077,6 +1081,11 @@ function DashboardContent() {
                 )}
               </div>
             </div>
+            {!isOfficialEmail(userEmail) && userEmail.trim().length > 0 && emailStatus !== "verified" && (
+              <p className="text-red-500 text-xs mt-1 px-1 font-medium">
+                Please enter an official work email address (personal emails like Gmail, Yahoo, etc. are not allowed).
+              </p>
+            )}
 
             {/* OTP verification input container */}
             <div
