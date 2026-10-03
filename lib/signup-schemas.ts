@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { isAgeEligible, MIN_ELIGIBLE_AGE, MAX_ELIGIBLE_AGE } from "@/lib/utils"
+import { isAgeEligible, isOfficialEmail, MIN_ELIGIBLE_AGE, MAX_ELIGIBLE_AGE } from "@/lib/utils"
 
 const MAX_5MB = 5 * 1024 * 1024;
 const MAX_2MB = 2 * 1024 * 1024;
@@ -100,7 +100,13 @@ export const personalDetailsSchema = z.object({
     // the eligibility gate rather than a typo guard. Step 2 also blocks submission
     // with a popup so the applicant sees why they can't proceed.
     .refine(isAgeEligible, `Age must be between ${MIN_ELIGIBLE_AGE} and ${MAX_ELIGIBLE_AGE} years`),
-   email: z.string().email("Please enter a valid email address"),// email verification disabled — any string or empty is accepted
+   email: z
+    .string()
+    .email("Please enter a valid email address")
+    .refine(
+      isOfficialEmail,
+      "Please enter an official work email address (personal emails like Gmail, Yahoo, etc. are not allowed)"
+    ),
   aadhaarNumber: z.string().length(12, "oops invalid Aadhaar number").regex(/^\d{12}$/, "oops invalid Aadhaar number"),
   aadhaarName: z.string().min(2, "Name as per Aadhaar is required"),
   addressLine: z.string().min(2, "Present address is required").max(200, "Address must be less than 200 characters"),
