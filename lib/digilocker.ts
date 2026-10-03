@@ -226,7 +226,7 @@ export const fetchDigilockerSession = async (
     const refusal = readErrorMessage(res);
     if (refusal) {
       traceStop(`the backend refused to open a session — "${refusal}"`);
-      return { session: null, error: refusal };
+      return { session: null, error: isServiceDown(refusal) ? GENERIC_FAILURE : refusal };
     }
 
     const url = readKey(res, URL_KEYS);
@@ -254,11 +254,14 @@ export const fetchDigilockerSession = async (
   } catch (err) {
     traceStop('the request-digilocker call itself failed', err);
     // apiClient throws an Error whose message IS the backend's `message` field for any
-    // non-2xx reply, so this is the rejection reason — not a generic network blip.
-    // Its own fallbacks ("HTTP error! status: 500") say nothing to a customer, so those
-    // are dropped and the caller's generic wording is used instead.
+    // non-2xx reply, so this is usually the rejection reason. When it is instead a sign
+    // that DigiLocker is down — a 5xx, a gateway error page, no connection at all — the
+    // customer gets the "temporarily unavailable" line. Other bare fallbacks
+    // ("HTTP error! status: 400") say nothing to a customer, so those are dropped and the
+    // caller's generic wording is used instead.
     const message = err instanceof Error ? asNonEmptyString(err.message) : null;
-    const showable = message && !/^HTTP error! status:/i.test(message) ? message : undefined;
+    if (!message || isServiceDown(message)) return { session: null, error: GENERIC_FAILURE };
+    const showable = !/^HTTP error! status:/i.test(message) ? message : undefined;
     return { session: null, error: showable };
   }
 };
@@ -762,7 +765,7 @@ export const readFailureReason = (params: URLSearchParams): string | null => {
   return null;
 };
 
-const UNREACHABLE = /\b(502|503|504|bad gateway|gateway timeout|service unavailable|upstream|econnrefused|econnreset|etimedout|enotfound|network|socket hang up)\b/i;
+const UNREACHABLE = /\b(500|502|503|504|bad gateway|gateway timeout|service unavailable|temporarily unavailable|upstream|econnrefused|econnreset|etimedout|enotfound|network|networkerror|failed to fetch|load failed|socket hang up)\b/i;
 const NOT_FOUND = /\b(404|not found|no such|unknown request|invalid request id)\b/i;
 const CANCELLED = /\b(cancel|cancelled|canceled|denied|declined|rejected|refused|consent not given)\b/i;
 const EXPIRED = /\b(expire|expired|timeout|timed out|session ended)\b/i;
@@ -772,7 +775,19 @@ const AUTH = /\b(401|403|unauthorized|forbidden|invalid token|authentication)\b/
 // gave is a network or gateway error. Both are the same thing from the customer's side:
 // DigiLocker could not be reached, and the answer is to come back later rather than to
 // keep pressing the button.
-export const GENERIC_FAILURE = 'DigiLocker upstream is down. Please try again later.';
+export const GENERIC_FAILURE = 'DigiLocker service is temporarily unavailable. Please try again shortly.';
+
+/**
+ * True when an error says DigiLocker (or the gateway in front of it) could not be reached,
+ * rather than giving a reason the customer can act on: a 5xx with no body, a gateway's
+ * HTML error page, a dropped connection, or the browser's own "Failed to fetch".
+ */
+export const isServiceDown = (message?: string | null): boolean => {
+  if (!message) return false;
+  if (/^HTTP error! status: 5\d\d/i.test(message)) return true;
+  if (/<\/?(html|body|head|title)\b/i.test(message)) return true;
+  return UNREACHABLE.test(message);
+};
 
 /**
  * Turns a raw failure reason into a sentence for the customer.
