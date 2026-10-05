@@ -504,6 +504,7 @@ function DashboardContent() {
     { label: "Mobile number", value: "Loading...", locked: true },
     { label: "Gender", value: "Loading...", locked: true },
     { label: "PAN", value: "Loading...", locked: true },
+    { label: "Email ID", value: "Loading...", locked: true },
   ]);
 
   const [employmentData, setEmploymentData] = React.useState([
@@ -525,7 +526,7 @@ function DashboardContent() {
 
   // Email Verification State for Dashboard Personal Details section
   const verifiedEmailsRef = React.useRef<Set<string>>(new Set());
-  const [userEmail, setUserEmail] = React.useState("");
+  const [userProfessionalEmail, setUserProfessionalEmail] = React.useState("");
   const [emailStatus, setEmailStatus] = React.useState<
     "idle" | "sending" | "sent" | "verifying" | "verified"
   >("idle");
@@ -668,7 +669,7 @@ function DashboardContent() {
   }, [emailResendIn]);
 
   React.useEffect(() => {
-    const normalized = userEmail.trim().toLowerCase();
+    const normalized = userProfessionalEmail.trim().toLowerCase();
     if (normalized && verifiedEmailsRef.current.has(normalized)) {
       setEmailStatus("verified");
       setShowEmailOtp(false);
@@ -678,16 +679,16 @@ function DashboardContent() {
     setEmailStatus("idle");
     setEmailOtp("");
     setShowEmailOtp(false);
-  }, [userEmail]);
+  }, [userProfessionalEmail]);
 
   const handleSendEmailOtp = async () => {
-    const address = userEmail.trim();
+    const address = userProfessionalEmail.trim();
     if (!address || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) {
       toast.error("Please enter a valid email address.");
       return;
     }
     if (!isOfficialEmail(address)) {
-      toast.error("Please enter an official work email address (personal emails like Gmail, Yahoo, etc. are not allowed).");
+      toast.error("Please enter a valid official email id.");
       return;
     }
 
@@ -716,7 +717,7 @@ function DashboardContent() {
   };
 
   const handleVerifyEmailOtp = async (otp: string) => {
-    const address = userEmail.trim();
+    const address = userProfessionalEmail.trim();
     const normalized = address.toLowerCase();
     setEmailStatus("verifying");
     try {
@@ -803,6 +804,11 @@ function DashboardContent() {
               value: p.panVerification?.panNumber || "Not Verified",
               locked: true,
             },
+            {
+              label: "Email ID",
+              value: p.email || "-",
+              locked: true,
+            },
           ]);
 
           const profileAadhaarNum = p.aadhaarVerification?.aadhaarNumber || "";
@@ -817,13 +823,15 @@ function DashboardContent() {
             setAadhaarDigilockerStatus("unverified");
           }
 
-          if (p.email) {
-            const emailAddr = String(p.email).trim();
-            setUserEmail(emailAddr);
-            if (p.emailVerified) {
-              verifiedEmailsRef.current.add(emailAddr.toLowerCase());
-              setEmailStatus("verified");
-            }
+          const profEmailAddr = p.professionalEmail
+            ? String(p.professionalEmail).trim()
+            : "";
+          setUserProfessionalEmail(profEmailAddr);
+          if (profEmailAddr && p.professionalEmailVerified) {
+            verifiedEmailsRef.current.add(profEmailAddr.toLowerCase());
+            setEmailStatus("verified");
+          } else {
+            setEmailStatus("idle");
           }
 
           if (p.employment) {
@@ -1234,7 +1242,7 @@ function DashboardContent() {
               )}
           </div>
 
-          {/* Email ID Field with Verification System */}
+          {/* Professional Email (Official) Field with Verification System */}
           <div className="space-y-2.5">
             <div className="flex justify-between items-center px-1">
               <label className="text-[15px] font-medium text-[#111827] block">
@@ -1269,8 +1277,8 @@ function DashboardContent() {
             <div className="relative group">
               <input
                 type="email"
-                value={userEmail}
-                onChange={(e) => setUserEmail(e.target.value)}
+                value={userProfessionalEmail}
+                onChange={(e) => setUserProfessionalEmail(e.target.value)}
                 placeholder="name@company.com"
                 className={`w-full rounded-2xl px-6 py-4 font-medium outline-none transition-all pr-12 ${
                   emailStatus === "verified"
@@ -1287,11 +1295,6 @@ function DashboardContent() {
                 )}
               </div>
             </div>
-            {!isOfficialEmail(userEmail) && userEmail.trim().length > 0 && emailStatus !== "verified" && (
-              <p className="text-red-500 text-xs mt-1 px-1 font-medium">
-                Please enter an official work email address (personal emails like Gmail, Yahoo, etc. are not allowed).
-              </p>
-            )}
 
             {/* OTP verification input container */}
             <div
@@ -1343,6 +1346,16 @@ function DashboardContent() {
               </div>
             </div>
           </div>
+
+          {/* Full width note for Professional Email */}
+          {emailStatus !== "verified" && (
+            <div className="col-span-1 md:col-span-2 -mt-4">
+              <p className="text-gray-500 text-xs px-1 font-medium">
+                Please enter an official work email address (for faster loan
+                process, verify your professional email).
+              </p>
+            </div>
+          )}
         </div>
       </section>
 

@@ -140,7 +140,7 @@ export function Step2PersonalDetails({
 
   // Track all emails verified by OTP or backend profile in this component's lifecycle
   const verifiedEmailsRef = React.useRef<Set<string>>(new Set());
-  const email = watch("email");
+  const professionalEmail = watch("professionalEmail");
 
   // Fetch backend profile on mount to restore email verified status after page refresh
   React.useEffect(() => {
@@ -151,11 +151,12 @@ export function Step2PersonalDetails({
         const res = await apiClient.getCompleteProfile();
         const profile =
           res?.profile || (res as any)?.data?.profile || (res as any)?.data;
-        if (profile?.email && profile?.emailVerified) {
-          const verifiedEmail = String(profile.email).trim().toLowerCase();
+        const targetEmail = profile?.professionalEmail ? String(profile.professionalEmail).trim() : "";
+        if (targetEmail && profile?.professionalEmailVerified) {
+          const verifiedEmail = String(targetEmail).trim().toLowerCase();
           verifiedEmailsRef.current.add(verifiedEmail);
           if (isMounted) {
-            const currentInput = String(watch("email") || "")
+            const currentInput = String(watch("professionalEmail") || "")
               .trim()
               .toLowerCase();
             if (currentInput === verifiedEmail) {
@@ -175,7 +176,7 @@ export function Step2PersonalDetails({
   }, []);
 
   React.useEffect(() => {
-    const normalized = String(email || "")
+    const normalized = String(professionalEmail || "")
       .trim()
       .toLowerCase();
     if (normalized && verifiedEmailsRef.current.has(normalized)) {
@@ -187,7 +188,7 @@ export function Step2PersonalDetails({
     setEmailStatus("idle");
     setEmailOtp("");
     setShowEmailOtp(false);
-  }, [email]);
+  }, [professionalEmail]);
 
   React.useEffect(() => {
     if (emailResendIn <= 0) return;
@@ -196,8 +197,8 @@ export function Step2PersonalDetails({
   }, [emailResendIn]);
 
   const handleSendEmailOtp = async () => {
-    const address = String(watch("email") || "").trim();
-    if (!(await trigger("email"))) return;
+    const address = String(watch("professionalEmail") || "").trim();
+    if (!(await trigger("professionalEmail"))) return;
 
     setEmailStatus("sending");
     setShowEmailOtp(true);
@@ -224,7 +225,7 @@ export function Step2PersonalDetails({
   };
 
   const handleVerifyEmailOtp = async (otp: string) => {
-    const address = String(watch("email") || "").trim();
+    const address = String(watch("professionalEmail") || "").trim();
     const normalized = address.toLowerCase();
     setEmailStatus("verifying");
     try {
@@ -1225,6 +1226,40 @@ export function Step2PersonalDetails({
           )}
         </div>
 
+        {/* Email ID Field (Standard Required Field) */}
+        <div className="w-full">
+          <label
+            className={cn("block", "text-sm", "font-bold", "text-[#1c2b4f]", "mb-2")}
+          >
+            Email ID <span className="text-red-500">*</span>
+          </label>
+          <div className="relative">
+            <Mail
+              className={cn(
+                "absolute",
+                "left-3",
+                "top-1/2",
+                "-translate-y-1/2",
+                "w-4",
+                "h-4",
+                "text-blue-400",
+              )}
+            />
+            <Input
+              {...register("email")}
+              type="email"
+              className="pl-10 h-11 border-gray-300 shadow-sm"
+              placeholder="name@example.com"
+            />
+          </div>
+          {errors.email && (
+            <p className={cn("text-red-500", "text-sm", "mt-1")}>
+              {errors.email.message}
+            </p>
+          )}
+        </div>
+
+        {/* Professional Email (Official) Field (With OTP Verification System) */}
         <div className="w-full">
           <div
             className={cn("flex", "justify-between", "items-center", "mb-2")}
@@ -1287,15 +1322,15 @@ export function Step2PersonalDetails({
               )}
             />
             <Input
-              {...register("email")}
+              {...register("professionalEmail")}
               type="email"
               className="pl-10 h-11 border-gray-300 shadow-sm"
               placeholder="name@company.com"
             />
           </div>
-          {errors.email && (
+          {errors.professionalEmail && (
             <p className={cn("text-red-500", "text-sm", "mt-1")}>
-              {errors.email.message}
+              {errors.professionalEmail.message}
             </p>
           )}
 
@@ -1350,6 +1385,13 @@ export function Step2PersonalDetails({
               </p>
             </div>
           </div>
+        </div>
+
+        {/* Full width note for Professional Email */}
+        <div className="w-full col-span-1 md:col-span-3 -mt-2">
+          <p className="text-gray-500 text-xs font-medium">
+            Please enter an official work email address (for faster loan process, verify your professional email).
+          </p>
         </div>
       </div>
 
