@@ -57,6 +57,16 @@ import {
 } from "@/lib/signup-schemas";
 import { FileUpload } from "@/components/ui/file-upload";
 import { toast } from "sonner";
+import { DigilockerModal } from "@/components/signup/DigilockerModal";
+import {
+  fetchDigilockerSession,
+  openConsentPopup,
+  steerPopupTo,
+  traceStart,
+  type DigilockerSession,
+  type DigilockerStatus,
+  type AadhaarProfile,
+} from "@/lib/digilocker";
 
 export const dynamic = "force-dynamic";
 
@@ -523,6 +533,134 @@ function DashboardContent() {
   const [emailResendIn, setEmailResendIn] = React.useState(0);
   const [showEmailOtp, setShowEmailOtp] = React.useState(false);
 
+  // Aadhaar DigiLocker Verification State for Dashboard Personal Details section
+  const [userAadhaar, setUserAadhaar] = React.useState("");
+  const [aadhaarDigilockerStatus, setAadhaarDigilockerStatus] = React.useState<
+    "unverified" | "CONSENT_COMPLETED"
+  >("unverified");
+  const [digilockerSession, setDigilockerSession] =
+    React.useState<DigilockerSession | null>(null);
+  const [digilockerPopup, setDigilockerPopup] = React.useState<Window | null>(
+    null,
+  );
+  const [isRequestingDigilocker, setIsRequestingDigilocker] =
+    React.useState(false);
+  const digilockerPopupRef = React.useRef<Window | null>(null);
+  const digilockerAadhaarRef = React.useRef<string>("");
+
+  const handleDigilockerSubmit = async () => {
+    const digits = String(userAadhaar || "").replace(/\D/g, "");
+
+    traceStart("step 1/7 — DigiLocker button pressed", {
+      aadhaarNumber: digits,
+    });
+
+    if (digits.length !== 12) {
+      toast.error("Please enter a valid 12-digit Aadhaar number.");
+      return;
+    }
+
+    const popup = openConsentPopup();
+    digilockerPopupRef.current = popup;
+    setDigilockerPopup(popup);
+    digilockerAadhaarRef.current = digits;
+
+    setIsRequestingDigilocker(true);
+    try {
+      const { session, error } = await fetchDigilockerSession(digits);
+      if (!session) {
+        popup?.close();
+        digilockerPopupRef.current = null;
+        setDigilockerPopup(null);
+        toast.error(
+          error || "Could not open DigiLocker right now. Please try again.",
+        );
+        return;
+      }
+
+      steerPopupTo(popup, session.url);
+      setDigilockerSession(session);
+
+      if (!popup) {
+        toast.error(
+          "Please allow pop-ups for this site, then use the Open DigiLocker button.",
+        );
+      }
+    } finally {
+      setIsRequestingDigilocker(false);
+    }
+  };
+
+  const handleDigilockerCancel = () => {
+    digilockerPopupRef.current?.close();
+    digilockerPopupRef.current = null;
+    setDigilockerPopup(null);
+    setDigilockerSession(null);
+  };
+
+  const handleDigilockerReopen = () => {
+    if (!digilockerSession) return;
+
+    const existing = digilockerPopupRef.current;
+    if (existing && !existing.closed) {
+      existing.focus();
+      return;
+    }
+
+    const popup = openConsentPopup();
+    digilockerPopupRef.current = popup;
+    setDigilockerPopup(popup);
+
+    if (!popup) {
+      toast.error(
+        "Pop-ups are blocked. Allow them for this site and try again.",
+      );
+      return;
+    }
+    steerPopupTo(popup, digilockerSession.url);
+  };
+
+  const handleDigilockerComplete = async (
+    status: DigilockerStatus,
+    profile?: AadhaarProfile,
+    reason?: string,
+  ) => {
+    digilockerPopupRef.current?.close();
+    digilockerPopupRef.current = null;
+    setDigilockerPopup(null);
+    setDigilockerSession(null);
+
+    if (status !== "success") {
+      setAadhaarDigilockerStatus("unverified");
+      toast.error(
+        reason || "DigiLocker verification failed. Please try again.",
+      );
+      return;
+    }
+
+    const digits =
+      (profile?.aadhaarNumber || "").replace(/\D/g, "") ||
+      digilockerAadhaarRef.current ||
+      String(userAadhaar || "").replace(/\D/g, "");
+
+    if (digits) {
+      setUserAadhaar(digits);
+      setProfileAadhaar(digits);
+    }
+
+    try {
+      const { apiClient } = await import("@/lib/api");
+      if (digits) {
+        await apiClient.validateAadhaar(digits);
+      }
+    } catch (err) {
+      console.error("Aadhaar validation endpoint error:", err);
+    }
+
+    setAadhaarDigilockerStatus("CONSENT_COMPLETED");
+    toast.success("Aadhaar verified successfully through DigiLocker.");
+  };
+
   React.useEffect(() => {
     if (emailResendIn <= 0) return;
     const timer = setTimeout(() => setEmailResendIn(emailResendIn - 1), 1000);
@@ -665,16 +803,19 @@ function DashboardContent() {
               value: p.panVerification?.panNumber || "Not Verified",
               locked: true,
             },
-            {
-              // Shown to the customer the same way the PAN is. Masked to the last 4
-              // digits — a full Aadhaar must not be displayed back.
-              label: "Aadhaar",
-              value:
-                maskAadhaar(p.aadhaarVerification?.aadhaarNumber) ||
-                "Not Verified",
-              locked: true,
-            },
           ]);
+
+          const profileAadhaarNum = p.aadhaarVerification?.aadhaarNumber || "";
+          setUserAadhaar(profileAadhaarNum);
+          const isConsentCompleted =
+            p.digilockerStatus === "CONSENT_COMPLETED" ||
+            p.aadhaarVerification?.digilockerStatus === "CONSENT_COMPLETED";
+
+          if (isConsentCompleted) {
+            setAadhaarDigilockerStatus("CONSENT_COMPLETED");
+          } else {
+            setAadhaarDigilockerStatus("unverified");
+          }
 
           if (p.email) {
             const emailAddr = String(p.email).trim();
@@ -1027,6 +1168,71 @@ function DashboardContent() {
               </div>
             </div>
           ))}
+
+          {/* Aadhaar Field with DigiLocker Verification System */}
+          <div className="space-y-2.5">
+            <div className="flex justify-between items-center px-1">
+              <label className="text-[15px] font-medium text-[#111827] block">
+                Aadhaar Card Number
+              </label>
+              {aadhaarDigilockerStatus === "CONSENT_COMPLETED" ? (
+                <span className="flex items-center text-xs font-bold text-green-600 bg-green-50 px-2.5 py-1 rounded-full border border-green-200">
+                  <ShieldCheck className="w-4 h-4 mr-1 shrink-0 text-green-600" />
+                  Verified
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleDigilockerSubmit}
+                  disabled={
+                    isRequestingDigilocker ||
+                    !userAadhaar ||
+                    userAadhaar.replace(/\D/g, "").length !== 12
+                  }
+                  className="text-xs font-bold text-green-700 hover:underline disabled:text-gray-400 disabled:no-underline cursor-pointer"
+                >
+                  {isRequestingDigilocker ? "Opening DigiLocker..." : "Verify"}
+                </button>
+              )}
+            </div>
+            <div className="relative group">
+              <input
+                type="text"
+                value={
+                  aadhaarDigilockerStatus === "CONSENT_COMPLETED"
+                    ? maskAadhaar(userAadhaar) || "Not Verified"
+                    : userAadhaar
+                }
+                onChange={(e) => {
+                  if (aadhaarDigilockerStatus !== "CONSENT_COMPLETED") {
+                    const raw = e.target.value.replace(/\D/g, "").slice(0, 12);
+                    setUserAadhaar(raw);
+                  }
+                }}
+                placeholder="Enter 12-digit Aadhaar Number"
+                className={`w-full rounded-2xl px-6 py-4 font-medium outline-none transition-all pr-12 ${
+                  aadhaarDigilockerStatus === "CONSENT_COMPLETED"
+                    ? "bg-[#F3F4F6] border-none text-gray-500 cursor-default"
+                    : "bg-white border border-gray-300 text-gray-900 focus:border-red-500 focus:ring-2 focus:ring-red-100"
+                }`}
+                readOnly={aadhaarDigilockerStatus === "CONSENT_COMPLETED"}
+              />
+              <div className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400">
+                {aadhaarDigilockerStatus === "CONSENT_COMPLETED" ? (
+                  <Lock size={18} />
+                ) : (
+                  <CreditCard size={18} />
+                )}
+              </div>
+            </div>
+            {aadhaarDigilockerStatus !== "CONSENT_COMPLETED" &&
+              userAadhaar.trim().length > 0 &&
+              userAadhaar.replace(/\D/g, "").length !== 12 && (
+                <p className="text-red-500 text-xs mt-1 px-1 font-medium">
+                  Please enter a valid 12-digit Aadhaar number.
+                </p>
+              )}
+          </div>
 
           {/* Email ID Field with Verification System */}
           <div className="space-y-2.5">
@@ -1735,6 +1941,15 @@ function DashboardContent() {
           )}
         </main>
       </div>
+      {digilockerSession && (
+        <DigilockerModal
+          session={digilockerSession}
+          popup={digilockerPopup}
+          onClose={handleDigilockerCancel}
+          onComplete={handleDigilockerComplete}
+          onReopen={handleDigilockerReopen}
+        />
+      )}
     </div>
   );
 }
