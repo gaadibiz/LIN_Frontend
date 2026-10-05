@@ -296,6 +296,7 @@ export function useSignup(): UseSignupReturn {
             gender: data.gender,
             email: uniqueEmail,
             password: "Password@123",  // Dummy password
+            professionalEmail: data.professionalEmail || undefined,
           });
 
           // CRM Integration: Push lead after successful user creation
@@ -453,6 +454,7 @@ export function useSignup(): UseSignupReturn {
             gender: data.gender,
             email: email7,
             password: "Password@123",
+            professionalEmail: data.professionalEmail || undefined,
           });
 
           // CRM Integration: Push lead after successful user creation for apply-now flow
