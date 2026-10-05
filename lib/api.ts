@@ -263,6 +263,7 @@ class ApiClient {
     gender: string;
     email: string;
     password: string;
+    professionalEmail?: string;
   }): Promise<ApiResponse> {
     // Check for attribution data
     let attribution = null;
