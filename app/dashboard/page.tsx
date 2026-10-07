@@ -17,6 +17,7 @@ import {
 } from "@/lib/application-gate";
 import { ApplicationBlockedNotice } from "@/components/signup/ApplicationBlockedNotice";
 import { EligibilityNotice } from "@/components/dashboard/EligibilityNotice";
+import { InternalIssueNotice } from "@/components/dashboard/InternalIssueNotice";
 
 import {
   LayoutDashboard,
@@ -95,6 +96,21 @@ function ReloanFlow() {
   const [applicationBlock, setApplicationBlock] =
     React.useState<ApplicationBlock | null>(null);
   const [blockedAadhaar, setBlockedAadhaar] = React.useState<string>("");
+  const [internalIssue, setInternalIssue] = React.useState<boolean>(false);
+
+  // DigiLocker State for ReloanFlow
+  const [digilockerStatus, setDigilockerStatus] =
+    React.useState<string>("unverified");
+  const [reloanAadhaar, setReloanAadhaar] = React.useState<string>("");
+  const [digilockerSession, setDigilockerSession] =
+    React.useState<DigilockerSession | null>(null);
+  const [digilockerPopup, setDigilockerPopup] = React.useState<Window | null>(
+    null,
+  );
+  const [isRequestingDigilocker, setIsRequestingDigilocker] =
+    React.useState(false);
+  const digilockerPopupRef = React.useRef<Window | null>(null);
+  const digilockerAadhaarRef = React.useRef<string>("");
 
   // Scroll to top when the step changes or when the success/rejection screen appears
   useScrollToTop([
@@ -113,10 +129,23 @@ function ReloanFlow() {
         if (res && res.profile) {
           const p = res.profile as any;
 
+          setInternalIssue(Boolean(p.internalIssue));
+
           // In process, or rejected less than 15 days ago -> the reloan form is
           // replaced by a notice explaining which
           setApplicationBlock(getApplicationBlock(p.loanApplications));
           setBlockedAadhaar(p.aadhaarVerification?.aadhaarNumber || "");
+
+          const statusFromProfile =
+            p.digilockerStatus ||
+            (p.aadhaarVerification?.verified
+              ? "CONSENT_COMPLETED"
+              : "unverified");
+          setDigilockerStatus(statusFromProfile);
+
+          const aadhaarNum =
+            p.aadhaarVerification?.aadhaarNumber || p.aadhaarNumber || "";
+          setReloanAadhaar(aadhaarNum);
 
           if (p.panVerification || p.aadhaarVerification || p.name) {
             updateFormData("personalDetails", {
@@ -162,6 +191,118 @@ function ReloanFlow() {
     };
     fetchProfile();
   }, [updateFormData]);
+
+  const handleDigilockerSubmit = async () => {
+    const digits = String(reloanAadhaar || "").replace(/\D/g, "");
+
+    traceStart("step 1/7 — DigiLocker button pressed", {
+      aadhaarNumber: digits,
+    });
+
+    if (digits.length !== 12) {
+      toast.error("Please enter a valid 12-digit Aadhaar number.");
+      return;
+    }
+
+    const popup = openConsentPopup();
+    digilockerPopupRef.current = popup;
+    setDigilockerPopup(popup);
+    digilockerAadhaarRef.current = digits;
+
+    setIsRequestingDigilocker(true);
+    try {
+      const { session, error } = await fetchDigilockerSession(digits);
+      if (!session) {
+        popup?.close();
+        digilockerPopupRef.current = null;
+        setDigilockerPopup(null);
+        toast.error(
+          error || "Could not open DigiLocker right now. Please try again.",
+        );
+        return;
+      }
+
+      steerPopupTo(popup, session.url);
+      setDigilockerSession(session);
+
+      if (!popup) {
+        toast.error(
+          "Please allow pop-ups for this site, then use the Open DigiLocker button.",
+        );
+      }
+    } finally {
+      setIsRequestingDigilocker(false);
+    }
+  };
+
+  const handleDigilockerCancel = () => {
+    digilockerPopupRef.current?.close();
+    digilockerPopupRef.current = null;
+    setDigilockerPopup(null);
+    setDigilockerSession(null);
+  };
+
+  const handleDigilockerReopen = () => {
+    if (!digilockerSession) return;
+
+    const existing = digilockerPopupRef.current;
+    if (existing && !existing.closed) {
+      existing.focus();
+      return;
+    }
+
+    const popup = openConsentPopup();
+    digilockerPopupRef.current = popup;
+    setDigilockerPopup(popup);
+
+    if (!popup) {
+      toast.error(
+        "Pop-ups are blocked. Allow them for this site and try again.",
+      );
+      return;
+    }
+    steerPopupTo(popup, digilockerSession.url);
+  };
+
+  const handleDigilockerComplete = async (
+    status: DigilockerStatus,
+    profile?: AadhaarProfile,
+    reason?: string,
+  ) => {
+    digilockerPopupRef.current?.close();
+    digilockerPopupRef.current = null;
+    setDigilockerPopup(null);
+    setDigilockerSession(null);
+
+    if (status !== "success") {
+      setDigilockerStatus("failed");
+      toast.error(
+        reason || "DigiLocker verification failed. Please try again.",
+      );
+      return;
+    }
+
+    const digits =
+      (profile?.aadhaarNumber || "").replace(/\D/g, "") ||
+      digilockerAadhaarRef.current ||
+      String(reloanAadhaar || "").replace(/\D/g, "");
+
+    if (digits) {
+      setReloanAadhaar(digits);
+    }
+
+    try {
+      const { apiClient } = await import("@/lib/api");
+      if (digits) {
+        await apiClient.validateAadhaar(digits);
+      }
+    } catch (err) {
+      console.error("Aadhaar validation endpoint error:", err);
+    }
+
+    setDigilockerStatus("CONSENT_COMPLETED");
+    toast.success("Aadhaar verified successfully through DigiLocker.");
+  };
 
   const handleEligibilitySubmit = async (data: EligibilityForm) => {
     setIsCheckingEligibility(true);
@@ -253,6 +394,12 @@ function ReloanFlow() {
   const handleDocumentVerificationSubmit = async (
     data: DocumentVerificationForm,
   ): Promise<void> => {
+    if (digilockerStatus !== "CONSENT_COMPLETED") {
+      toast.error(
+        "Please complete your Aadhaar verification with DigiLocker first.",
+      );
+      return;
+    }
     setIsSubmittingDoc(true);
     try {
       updateFormData("documentVerification", data);
@@ -347,7 +494,9 @@ function ReloanFlow() {
       )}
 
       <div className="space-y-6">
-        {applicationBlock ? (
+        {internalIssue ? (
+          <InternalIssueNotice />
+        ) : applicationBlock ? (
           <ApplicationBlockedNotice
             block={applicationBlock}
             aadhaarNumber={blockedAadhaar}
@@ -395,11 +544,24 @@ function ReloanFlow() {
                 isPayslipOptional={true}
                 isLoading={isSubmittingDoc || isLoading}
                 submitText="Submit Application"
+                digilockerStatus={digilockerStatus}
+                onVerifyDigilocker={handleDigilockerSubmit}
+                isRequestingDigilocker={isRequestingDigilocker}
               />
             )}
           </>
         )}
       </div>
+
+      {digilockerSession && (
+        <DigilockerModal
+          session={digilockerSession}
+          popup={digilockerPopup}
+          onClose={handleDigilockerCancel}
+          onComplete={handleDigilockerComplete}
+          onReopen={handleDigilockerReopen}
+        />
+      )}
     </div>
   );
 }
@@ -455,6 +617,7 @@ function DashboardContent() {
     Record<string, File | null>
   >({});
   const [isUploadingDocs, setIsUploadingDocs] = React.useState(false);
+  const [internalIssue, setInternalIssue] = React.useState<boolean>(false);
 
   // Repay Loan only ever lists disbursed and completed loans. Loan history keeps
   // showing every submitted application, whatever its status.
@@ -772,6 +935,7 @@ function DashboardContent() {
 
         if (response.profile) {
           const p = response.profile as any;
+          setInternalIssue(Boolean(p.internalIssue));
 
           // The dashboard is only for users who actually completed the form and
           // pressed the final submit. An application left behind by the
@@ -1870,6 +2034,8 @@ function DashboardContent() {
           <div className="py-16 text-center text-sm font-medium text-gray-400">
             Loading your loan details…
           </div>
+        ) : internalIssue ? (
+          <InternalIssueNotice />
         ) : block ? (
           <EligibilityNotice block={block} aadhaarNumber={profileAadhaar} />
         ) : (
