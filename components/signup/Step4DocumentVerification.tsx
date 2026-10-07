@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { FileUpload } from "@/components/ui/file-upload"
 import { documentVerificationSchema, documentVerificationSchemaOptionalPayslip, type DocumentVerificationForm } from "@/lib/signup-schemas"
-import { Loader2 } from "lucide-react"
+import { Loader2, ShieldCheck } from "lucide-react"
+import { toast } from "sonner"
+import { cn } from "@/lib/utils"
 
 interface Step4Props {
   onSubmit: (data: DocumentVerificationForm) => void
@@ -16,6 +18,9 @@ interface Step4Props {
   isPayslipOptional?: boolean
   isLoading?: boolean
   submitText?: string
+  digilockerStatus?: string
+  onVerifyDigilocker?: () => void
+  isRequestingDigilocker?: boolean
 }
 
 export function Step4DocumentVerification({
@@ -24,7 +29,10 @@ export function Step4DocumentVerification({
   setFormData,
   isPayslipOptional = false,
   isLoading = false,
-  submitText = "Submit Application"
+  submitText = "Submit Application",
+  digilockerStatus,
+  onVerifyDigilocker,
+  isRequestingDigilocker = false,
 }: Step4Props) {
   const schema = isPayslipOptional ? documentVerificationSchemaOptionalPayslip : documentVerificationSchema
   const { register, handleSubmit, formState: { errors, isValid }, setValue, watch } = useForm<DocumentVerificationForm>({
@@ -36,6 +44,10 @@ export function Step4DocumentVerification({
   const [consentChecked, setConsentChecked] = React.useState(false)
 
   const handleFormSubmit = (data: DocumentVerificationForm) => {
+    if (digilockerStatus !== undefined && digilockerStatus !== "CONSENT_COMPLETED") {
+      toast.error("Please complete your Aadhaar verification with DigiLocker first.")
+      return
+    }
     setFormData(data)
     onSubmit(data)
   }
@@ -102,6 +114,77 @@ export function Step4DocumentVerification({
           </div>
         </div>
 
+        {digilockerStatus !== undefined && digilockerStatus !== "CONSENT_COMPLETED" && (
+          <div className="mt-3">
+            <Button
+              type="button"
+              onClick={onVerifyDigilocker}
+              disabled={isRequestingDigilocker}
+              className={cn(
+                "w-full",
+                "h-12",
+                "rounded-xl",
+                "bg-[#1c2b4f]",
+                "hover:bg-[#16223f]",
+                "text-white",
+                "text-base",
+                "font-bold",
+                "shadow-sm",
+                "transition-all",
+                "disabled:opacity-50",
+              )}
+            >
+              {isRequestingDigilocker ? (
+                <span
+                  className={cn(
+                    "flex",
+                    "items-center",
+                    "justify-center",
+                    "gap-2",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "w-4",
+                      "h-4",
+                      "border-2",
+                      "border-white/70",
+                      "border-t-transparent",
+                      "rounded-full",
+                      "animate-spin",
+                    )}
+                  />
+                  Opening DigiLocker...
+                </span>
+              ) : (
+                <span
+                  className={cn(
+                    "flex",
+                    "items-center",
+                    "justify-center",
+                    "gap-2",
+                  )}
+                >
+                  <ShieldCheck className={cn("w-4", "h-4")} />
+                  {digilockerStatus === "failed"
+                    ? "Retry DigiLocker verification"
+                    : "Verify Aadhaar with DigiLocker"}
+                </span>
+              )}
+            </Button>
+            <p
+              className={cn(
+                "text-[11px]",
+                "text-gray-500",
+                "mt-2",
+                "text-center",
+              )}
+            >
+              Submit to open DigiLocker and give consent for your Aadhaar.
+            </p>
+          </div>
+        )}
+
         <p className="text-sm text-gray-600 mt-4">
           Secure, transparent, and RBI-compliant personal loans — designed to help you when you need it most.
         </p>
@@ -129,7 +212,7 @@ export function Step4DocumentVerification({
         <Button 
           type="submit" 
           className="w-full bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 h-12 text-base font-bold shadow-md transition-all"
-          disabled={!isValid || !consentChecked || isLoading}
+          disabled={!isValid || !consentChecked || isLoading || (digilockerStatus !== undefined && digilockerStatus !== "CONSENT_COMPLETED")}
         >
           {isLoading ? (
             <>
