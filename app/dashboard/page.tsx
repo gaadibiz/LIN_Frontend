@@ -137,10 +137,10 @@ function ReloanFlow() {
           setBlockedAadhaar(p.aadhaarVerification?.aadhaarNumber || "");
 
           const statusFromProfile =
-            p.digilockerStatus ||
-            (p.aadhaarVerification?.verified
+            p.digilockerStatus === "CONSENT_COMPLETED" ||
+            p.aadhaarVerification?.digilockerStatus === "CONSENT_COMPLETED"
               ? "CONSENT_COMPLETED"
-              : "unverified");
+              : p.digilockerStatus || p.aadhaarVerification?.digilockerStatus || "unverified";
           setDigilockerStatus(statusFromProfile);
 
           const aadhaarNum =
