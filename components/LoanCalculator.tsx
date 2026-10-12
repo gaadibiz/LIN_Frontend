@@ -9,6 +9,11 @@ import { Input } from "./ui/input";
 import { useRouter } from "next/navigation";
 import { useAffiliate } from "@/hooks/useAffiliate";
 
+const formatAmount = (value: number) =>
+  value.toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
 export default function LoanCalculator({ loanType }: { loanType?: string }) {
   const router = useRouter();
@@ -142,7 +147,7 @@ export default function LoanCalculator({ loanType }: { loanType?: string }) {
             <div className="space-y-2 flex flex-col">
               <p className="capitalize leading-tight text-sm">Monthly EMI</p>
               <h3 className="lg:text-3xl text-2xl font-bold">
-                ₹ {emi.toFixed(2)}
+                ₹ {formatAmount(emi)}
               </h3>
             </div>
 
@@ -150,12 +155,12 @@ export default function LoanCalculator({ loanType }: { loanType?: string }) {
 
             <div className="w-full flex justify-between items-center">
               <p>Total Interest</p>
-              <p>₹ {totalInterest.toFixed(2)}</p>
+              <p>₹ {formatAmount(totalInterest)}</p>
             </div>
 
             <div className="w-full flex justify-between items-center">
               <p>Total Payable</p>
-              <p>₹ {totalPayment.toFixed(2)}</p>
+              <p>₹ {formatAmount(totalPayment)}</p>
             </div>
 
             <Button
