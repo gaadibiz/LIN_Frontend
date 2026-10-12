@@ -33,7 +33,6 @@ import { useAffiliate } from "@/hooks/useAffiliate";
 import { hasLoanApplication } from "@/lib/utils";
 import FraudAlertTicker from "@/components/FraudAlertTicker";
 
-
 const cities: { title: string; href: string; description: string }[] = [
   {
     title: "Mumbai",
@@ -76,6 +75,11 @@ const cities: { title: string; href: string; description: string }[] = [
     description: "Avail loans in Chandigarh",
   },
   {
+    title: "Coimbatore",
+    href: "/cities/payday-loan-in-coimbatore",
+    description: "Avail loans in Coimbatore",
+  },
+  {
     title: "Ahmedabad",
     href: "/cities/payday-loan-in-ahmedabad",
     description: "Avail loans in Ahmedabad",
@@ -92,7 +96,10 @@ function ListItem({
   return (
     <li {...props}>
       <NavigationMenuLink asChild>
-        <Link href={getLinkWithRef(href)} className="block p-2 rounded-md hover:bg-gray-100">
+        <Link
+          href={getLinkWithRef(href)}
+          className="block p-2 rounded-md hover:bg-gray-100"
+        >
           <div className="text-sm font-medium">{title}</div>
           <p className="text-xs text-muted-foreground">{children}</p>
         </Link>
@@ -100,7 +107,6 @@ function ListItem({
     </li>
   );
 }
-
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -113,54 +119,68 @@ export default function Navbar() {
   const [canAccessDashboard, setCanAccessDashboard] = React.useState(false);
 
   React.useEffect(() => {
-    const userToken = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
-    const partnerToken = typeof window !== 'undefined' ? localStorage.getItem('partnerAuthToken') : null;
+    const userToken =
+      typeof window !== "undefined" ? localStorage.getItem("authToken") : null;
+    const partnerToken =
+      typeof window !== "undefined"
+        ? localStorage.getItem("partnerAuthToken")
+        : null;
     let timeoutId: NodeJS.Timeout;
 
     if (userToken) {
       setIsLoggedIn(true);
       setDashboardLink("/dashboard");
-      
+
       // Load profile: enable the dashboard button only if the user has a loan application.
       import("@/lib/api").then(({ apiClient }) => {
-        apiClient.getCompleteProfile().then(res => {
-          setIsProfileComplete(true);
-          const hasApp = hasLoanApplication(res?.profile);
-          setCanAccessDashboard(hasApp);
-          
-          if (!hasApp) {
-            timeoutId = setTimeout(() => {
-              localStorage.removeItem('authToken');
-              localStorage.removeItem('userData');
-              window.location.replace("/");
-            }, 10 * 60 * 1000); // 10 minutes
-          }
-        }).catch(e => {
-          console.error("Failed to load profile in navbar:", e);
-          setIsProfileComplete(true);
-          setCanAccessDashboard(false);
-          
-          timeoutId = setTimeout(() => {
-            localStorage.removeItem('authToken');
-            localStorage.removeItem('userData');
-            window.location.replace("/");
-          }, 10 * 60 * 1000); // 10 minutes
-        });
+        apiClient
+          .getCompleteProfile()
+          .then((res) => {
+            setIsProfileComplete(true);
+            const hasApp = hasLoanApplication(res?.profile);
+            setCanAccessDashboard(hasApp);
+
+            if (!hasApp) {
+              timeoutId = setTimeout(
+                () => {
+                  localStorage.removeItem("authToken");
+                  localStorage.removeItem("userData");
+                  window.location.replace("/");
+                },
+                10 * 60 * 1000,
+              ); // 10 minutes
+            }
+          })
+          .catch((e) => {
+            console.error("Failed to load profile in navbar:", e);
+            setIsProfileComplete(true);
+            setCanAccessDashboard(false);
+
+            timeoutId = setTimeout(
+              () => {
+                localStorage.removeItem("authToken");
+                localStorage.removeItem("userData");
+                window.location.replace("/");
+              },
+              10 * 60 * 1000,
+            ); // 10 minutes
+          });
       });
     } else if (partnerToken) {
       setIsLoggedIn(true);
       setIsProfileComplete(true);
       // Partners (DSA/BC/Affiliate) have their own dashboards — always accessible.
       setCanAccessDashboard(true);
-      const partnerDataStr = localStorage.getItem('partnerData');
+      const partnerDataStr = localStorage.getItem("partnerData");
       if (partnerDataStr) {
         try {
           const partnerData = JSON.parse(partnerDataStr);
           const type = partnerData.partnerType;
           // partnerType can be DSA, BC, AFFILIATE
-          if (type === 'DSA') setDashboardLink("/dsa-dashboard");
-          else if (type === 'BC') setDashboardLink("/bc-dashboard");
-          else if (type === 'AFFILIATE') setDashboardLink("/affiliate-dashboard");
+          if (type === "DSA") setDashboardLink("/dsa-dashboard");
+          else if (type === "BC") setDashboardLink("/bc-dashboard");
+          else if (type === "AFFILIATE")
+            setDashboardLink("/affiliate-dashboard");
           else setDashboardLink("/dashboard");
         } catch (e) {
           console.error("Error parsing partner data", e);
@@ -174,14 +194,22 @@ export default function Navbar() {
       setIsProfileComplete(true);
       setCanAccessDashboard(false);
     }
-    
+
     return () => {
       if (timeoutId) clearTimeout(timeoutId);
     };
   }, [pathname]);
 
   // Helper: wrap Link to auto-close the sheet on mobile nav
-  const MobileLink = ({ href, children, className }: { href: string; children: React.ReactNode; className?: string }) => (
+  const MobileLink = ({
+    href,
+    children,
+    className,
+  }: {
+    href: string;
+    children: React.ReactNode;
+    className?: string;
+  }) => (
     <Link
       href={getLinkWithRef(href)}
       className={className}
@@ -197,8 +225,17 @@ export default function Navbar() {
       <nav className="w-full mx-auto py-3 px-4 sm:px-6 md:px-12 lg:px-24 bg-red-50 shadow-sm">
         <div className="flex justify-between items-center">
           {/* Logo */}
-          <Link href={getLinkWithRef("/")} className="flex items-center flex-shrink-0">
-            <Image src="/lin-logo.png" alt="Logo" width={120} height={40} className="h-8 w-auto sm:h-10" />
+          <Link
+            href={getLinkWithRef("/")}
+            className="flex items-center flex-shrink-0"
+          >
+            <Image
+              src="/lin-logo.png"
+              alt="Logo"
+              width={120}
+              height={40}
+              className="h-8 w-auto sm:h-10"
+            />
           </Link>
 
           {/* Desktop Navigation */}
@@ -208,7 +245,9 @@ export default function Navbar() {
                 <NavigationMenuItem>
                   <NavigationMenuTrigger>
                     <NavigationMenuLink asChild>
-                      <Link href={getLinkWithRef("/personal-loan")}>Personal loan</Link>
+                      <Link href={getLinkWithRef("/personal-loan")}>
+                        Personal loan
+                      </Link>
                     </NavigationMenuLink>
                   </NavigationMenuTrigger>
                   <NavigationMenuContent>
@@ -224,22 +263,36 @@ export default function Navbar() {
                 </NavigationMenuItem>
 
                 <NavigationMenuItem>
-                  <NavigationMenuTrigger>Loan calculators</NavigationMenuTrigger>
+                  <NavigationMenuTrigger>
+                    Loan calculators
+                  </NavigationMenuTrigger>
                   <NavigationMenuContent>
                     <ul className="grid w-[300px] gap-4 p-3">
                       <li>
                         <NavigationMenuLink asChild>
-                          <Link href={getLinkWithRef("/loan-calculators/personal-emi-calculator")}>
+                          <Link
+                            href={getLinkWithRef(
+                              "/loan-calculators/personal-emi-calculator",
+                            )}
+                          >
                             Personal EMI Calculator
                           </Link>
                         </NavigationMenuLink>
                         <NavigationMenuLink asChild>
-                          <Link href={getLinkWithRef("/loan-calculators/eligibility-loan-calculator")}>
+                          <Link
+                            href={getLinkWithRef(
+                              "/loan-calculators/eligibility-loan-calculator",
+                            )}
+                          >
                             Eligibility Loan Calculator
                           </Link>
                         </NavigationMenuLink>
                         <NavigationMenuLink asChild>
-                          <Link href={getLinkWithRef("/loan-calculators/loan-comparison-calculator")}>
+                          <Link
+                            href={getLinkWithRef(
+                              "/loan-calculators/loan-comparison-calculator",
+                            )}
+                          >
                             Loan Comparison Calculator
                           </Link>
                         </NavigationMenuLink>
@@ -280,64 +333,73 @@ export default function Navbar() {
                   <NavigationMenuContent>
                     <ul className="grid w-[200px] gap-3 p-3">
                       <li>
-                        <Link href={getLinkWithRef("/contact-us")}>Contact us</Link>
+                        <Link href={getLinkWithRef("/contact-us")}>
+                          Contact us
+                        </Link>
                       </li>
                       <li>
-                        <Link href={getLinkWithRef("/enquire-now")}>Enquire now</Link>
+                        <Link href={getLinkWithRef("/enquire-now")}>
+                          Enquire now
+                        </Link>
                       </li>
                       <li>
-                        <Link href={getLinkWithRef("/track-loan")}>Track loan</Link>
+                        <Link href={getLinkWithRef("/track-loan")}>
+                          Track loan
+                        </Link>
                       </li>
                     </ul>
                   </NavigationMenuContent>
                 </NavigationMenuItem>
 
                 {isLoggedIn ? (
-                      canAccessDashboard ? (
-                        <NavigationMenuItem>
-                          <NavigationMenuTrigger className="text-red-600 font-semibold h-9 px-4 py-2 hover:bg-red-50 hover:text-red-700 data-[state=open]:bg-red-50 data-[active]:bg-red-50">
-                            Account
-                          </NavigationMenuTrigger>
-                          <NavigationMenuContent>
-                            <ul className="grid w-[150px] gap-2 p-3">
-                              <li>
-                                <Link href={getLinkWithRef(dashboardLink)} className="block p-2 rounded-md hover:bg-gray-100 text-sm font-medium">
-                                  Dashboard
-                                </Link>
-                              </li>
-                              <li>
-                                <button
-                                  onClick={() => {
-                                    localStorage.removeItem('authToken');
-                                    localStorage.removeItem('userData');
-                                    window.location.replace(getLinkWithRef("/"));
-                                  }}
-                                  className="w-full text-left block p-2 rounded-md hover:bg-red-50 text-red-600 text-sm font-medium transition-colors"
-                                >
-                                  Logout
-                                </button>
-                              </li>
-                            </ul>
-                          </NavigationMenuContent>
-                        </NavigationMenuItem>
-                      ) : (
-                        <NavigationMenuItem>
-                          <NavigationMenuLink asChild>
-                            <Button
-                              size="sm"
-                              variant="outline"
+                  canAccessDashboard ? (
+                    <NavigationMenuItem>
+                      <NavigationMenuTrigger className="text-red-600 font-semibold h-9 px-4 py-2 hover:bg-red-50 hover:text-red-700 data-[state=open]:bg-red-50 data-[active]:bg-red-50">
+                        Account
+                      </NavigationMenuTrigger>
+                      <NavigationMenuContent>
+                        <ul className="grid w-[150px] gap-2 p-3">
+                          <li>
+                            <Link
+                              href={getLinkWithRef(dashboardLink)}
+                              className="block p-2 rounded-md hover:bg-gray-100 text-sm font-medium"
+                            >
+                              Dashboard
+                            </Link>
+                          </li>
+                          <li>
+                            <button
                               onClick={() => {
-                                localStorage.removeItem('authToken');
-                                localStorage.removeItem('userData');
+                                localStorage.removeItem("authToken");
+                                localStorage.removeItem("userData");
                                 window.location.replace(getLinkWithRef("/"));
                               }}
-                              className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 font-semibold shadow-sm"
+                              className="w-full text-left block p-2 rounded-md hover:bg-red-50 text-red-600 text-sm font-medium transition-colors"
                             >
                               Logout
-                            </Button>
-                          </NavigationMenuLink>
-                        </NavigationMenuItem>
-                      )
+                            </button>
+                          </li>
+                        </ul>
+                      </NavigationMenuContent>
+                    </NavigationMenuItem>
+                  ) : (
+                    <NavigationMenuItem>
+                      <NavigationMenuLink asChild>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            localStorage.removeItem("authToken");
+                            localStorage.removeItem("userData");
+                            window.location.replace(getLinkWithRef("/"));
+                          }}
+                          className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 font-semibold shadow-sm"
+                        >
+                          Logout
+                        </Button>
+                      </NavigationMenuLink>
+                    </NavigationMenuItem>
+                  )
                 ) : (
                   <NavigationMenuItem>
                     <NavigationMenuLink
@@ -351,8 +413,16 @@ export default function Navbar() {
 
                 <NavigationMenuItem>
                   <NavigationMenuLink asChild>
-                    <Link href={getLinkWithRef(isLoggedIn ? "/apply-now" : "/signup")}>
-                      <Button size="default" variant="default" className="text-base">
+                    <Link
+                      href={getLinkWithRef(
+                        isLoggedIn ? "/apply-now" : "/signup",
+                      )}
+                    >
+                      <Button
+                        size="default"
+                        variant="default"
+                        className="text-base"
+                      >
                         Apply now
                       </Button>
                     </Link>
@@ -362,7 +432,6 @@ export default function Navbar() {
             </NavigationMenu>
           </div>
 
-
           {/* Mobile Hamburger */}
           <div className="lg:hidden">
             <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
@@ -371,7 +440,10 @@ export default function Navbar() {
                   <Menu className="h-6 w-6" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="right" className="w-[85vw] max-w-sm overflow-y-auto">
+              <SheetContent
+                side="right"
+                className="w-[85vw] max-w-sm overflow-y-auto"
+              >
                 <SheetHeader>
                   <SheetTitle>
                     <Image
@@ -391,10 +463,16 @@ export default function Navbar() {
                       </AccordionTrigger>
                       <AccordionContent>
                         <div className="flex flex-col space-y-2 pl-3">
-                          <MobileLink href="/personal-loan" className="text-sm text-gray-700 py-1.5 hover:text-primary transition-colors">
+                          <MobileLink
+                            href="/personal-loan"
+                            className="text-sm text-gray-700 py-1.5 hover:text-primary transition-colors"
+                          >
                             All Personal Loans
                           </MobileLink>
-                          <MobileLink href="/personal-loan/insta-loan" className="text-sm text-gray-700 py-1.5 hover:text-primary transition-colors">
+                          <MobileLink
+                            href="/personal-loan/insta-loan"
+                            className="text-sm text-gray-700 py-1.5 hover:text-primary transition-colors"
+                          >
                             Insta Loan
                           </MobileLink>
                         </div>
@@ -408,13 +486,22 @@ export default function Navbar() {
                       </AccordionTrigger>
                       <AccordionContent>
                         <div className="flex flex-col space-y-2 pl-3">
-                          <MobileLink href="/loan-calculators/personal-emi-calculator" className="text-sm text-gray-700 py-1.5 hover:text-primary transition-colors">
+                          <MobileLink
+                            href="/loan-calculators/personal-emi-calculator"
+                            className="text-sm text-gray-700 py-1.5 hover:text-primary transition-colors"
+                          >
                             Personal EMI Calculator
                           </MobileLink>
-                          <MobileLink href="/loan-calculators/eligibility-loan-calculator" className="text-sm text-gray-700 py-1.5 hover:text-primary transition-colors">
+                          <MobileLink
+                            href="/loan-calculators/eligibility-loan-calculator"
+                            className="text-sm text-gray-700 py-1.5 hover:text-primary transition-colors"
+                          >
                             Eligibility Loan Calculator
                           </MobileLink>
-                          <MobileLink href="/loan-calculators/loan-comparison-calculator" className="text-sm text-gray-700 py-1.5 hover:text-primary transition-colors">
+                          <MobileLink
+                            href="/loan-calculators/loan-comparison-calculator"
+                            className="text-sm text-gray-700 py-1.5 hover:text-primary transition-colors"
+                          >
                             Loan Comparison Calculator
                           </MobileLink>
                         </div>
@@ -429,7 +516,11 @@ export default function Navbar() {
                       <AccordionContent>
                         <div className="flex flex-col space-y-2 pl-3">
                           {cities.map((city) => (
-                            <MobileLink key={city.title} href={city.href} className="text-sm text-gray-700 py-1.5 hover:text-primary transition-colors">
+                            <MobileLink
+                              key={city.title}
+                              href={city.href}
+                              className="text-sm text-gray-700 py-1.5 hover:text-primary transition-colors"
+                            >
                               {city.title}
                             </MobileLink>
                           ))}
@@ -444,10 +535,16 @@ export default function Navbar() {
                       </AccordionTrigger>
                       <AccordionContent>
                         <div className="flex flex-col space-y-2 pl-3">
-                          <MobileLink href="/blog" className="text-sm text-gray-700 py-1.5 hover:text-primary transition-colors">
+                          <MobileLink
+                            href="/blog"
+                            className="text-sm text-gray-700 py-1.5 hover:text-primary transition-colors"
+                          >
                             Blogs
                           </MobileLink>
-                          <MobileLink href="/about-us" className="text-sm text-gray-700 py-1.5 hover:text-primary transition-colors">
+                          <MobileLink
+                            href="/about-us"
+                            className="text-sm text-gray-700 py-1.5 hover:text-primary transition-colors"
+                          >
                             About Us
                           </MobileLink>
                         </div>
@@ -461,13 +558,22 @@ export default function Navbar() {
                       </AccordionTrigger>
                       <AccordionContent>
                         <div className="flex flex-col space-y-2 pl-3">
-                          <MobileLink href="/contact-us" className="text-sm text-gray-700 py-1.5 hover:text-primary transition-colors">
+                          <MobileLink
+                            href="/contact-us"
+                            className="text-sm text-gray-700 py-1.5 hover:text-primary transition-colors"
+                          >
                             Contact Us
                           </MobileLink>
-                          <MobileLink href="/enquire-now" className="text-sm text-gray-700 py-1.5 hover:text-primary transition-colors">
+                          <MobileLink
+                            href="/enquire-now"
+                            className="text-sm text-gray-700 py-1.5 hover:text-primary transition-colors"
+                          >
                             Enquire Now
                           </MobileLink>
-                          <MobileLink href="/track-loan" className="text-sm text-gray-700 py-1.5 hover:text-primary transition-colors">
+                          <MobileLink
+                            href="/track-loan"
+                            className="text-sm text-gray-700 py-1.5 hover:text-primary transition-colors"
+                          >
                             Track Loan
                           </MobileLink>
                         </div>
@@ -480,13 +586,18 @@ export default function Navbar() {
                       canAccessDashboard ? (
                         <div className="flex flex-col space-y-2">
                           <MobileLink href={dashboardLink}>
-                            <Button variant="outline" className="w-full text-red-600 border-red-200 hover:bg-red-50">Dashboard</Button>
+                            <Button
+                              variant="outline"
+                              className="w-full text-red-600 border-red-200 hover:bg-red-50"
+                            >
+                              Dashboard
+                            </Button>
                           </MobileLink>
                           <Button
                             variant="outline"
                             onClick={() => {
-                              localStorage.removeItem('authToken');
-                              localStorage.removeItem('userData');
+                              localStorage.removeItem("authToken");
+                              localStorage.removeItem("userData");
                               window.location.replace(getLinkWithRef("/"));
                             }}
                             className="w-full text-red-600 border-red-200 hover:bg-red-50"
@@ -498,8 +609,8 @@ export default function Navbar() {
                         <Button
                           variant="outline"
                           onClick={() => {
-                            localStorage.removeItem('authToken');
-                            localStorage.removeItem('userData');
+                            localStorage.removeItem("authToken");
+                            localStorage.removeItem("userData");
                             window.location.replace(getLinkWithRef("/"));
                           }}
                           className="w-full text-red-600 border-red-200 hover:bg-red-50"
@@ -508,16 +619,23 @@ export default function Navbar() {
                         </Button>
                       )
                     ) : (
-                      <MobileLink href="/login" className="text-sm font-medium py-2 hover:text-primary transition-colors">
+                      <MobileLink
+                        href="/login"
+                        className="text-sm font-medium py-2 hover:text-primary transition-colors"
+                      >
                         Login
                       </MobileLink>
                     )}
-                    <MobileLink href={isLoggedIn ? "/apply-now" : "/signup"} className="w-full">
-                      <Button variant="default" className="w-full">Apply now</Button>
+                    <MobileLink
+                      href={isLoggedIn ? "/apply-now" : "/signup"}
+                      className="w-full"
+                    >
+                      <Button variant="default" className="w-full">
+                        Apply now
+                      </Button>
                     </MobileLink>
                   </div>
                 </div>
-
               </SheetContent>
             </Sheet>
           </div>

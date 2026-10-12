@@ -1,120 +1,164 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-"use client"
+"use client";
 
-import React from "react"
-import { useForm, Controller } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { eligibilitySchema, getRequiredMonthlySalary, MIN_MONTHLY_SALARY, type EligibilityForm } from "@/lib/signup-schemas"
-import { FileText, Wallet, Target, Briefcase, Landmark, MapPin, Banknote, CreditCard, Lock } from "lucide-react"
+import React from "react";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  eligibilitySchema,
+  getRequiredMonthlySalary,
+  MIN_MONTHLY_SALARY,
+  type EligibilityForm,
+} from "@/lib/signup-schemas";
+import {
+  FileText,
+  Wallet,
+  Target,
+  Briefcase,
+  Landmark,
+  MapPin,
+  Banknote,
+  CreditCard,
+  Lock,
+} from "lucide-react";
 
 interface Step0Props {
-  onSubmit: (data: EligibilityForm) => void
-  isLoading?: boolean
-  formData?: Partial<EligibilityForm>
-  isProfileComplete?: boolean
+  onSubmit: (data: EligibilityForm) => void;
+  isLoading?: boolean;
+  formData?: Partial<EligibilityForm>;
+  isProfileComplete?: boolean;
   // The apply-now funnel shows a phone screen before this one, so eligibility is its
   // step 2 of 3. The dashboard reloan flow starts here (user is already logged in) and
   // passes its own label.
-  stepLabel?: string
+  stepLabel?: string;
 }
 
-export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfileComplete = false, stepLabel = "Step 2 of 3" }: Step0Props) {
-  const { register, handleSubmit, formState: { errors, isValid }, watch, setValue, reset, trigger } = useForm<EligibilityForm>({
+export function Step0EligibilityCheck({
+  onSubmit,
+  isLoading,
+  formData,
+  isProfileComplete = false,
+  stepLabel = "Step 2 of 3",
+}: Step0Props) {
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isValid },
+    watch,
+    setValue,
+    reset,
+    trigger,
+  } = useForm<EligibilityForm>({
     mode: "onChange",
     resolver: zodResolver(eligibilitySchema),
     defaultValues: {
       loanAmount: formData?.loanAmount || undefined,
       purposeOfLoan: formData?.purposeOfLoan || "",
-      monthlySalaryRange: formData?.monthlySalaryRange || (formData as any)?.monthlyIncome?.toString() || "",
+      monthlySalaryRange:
+        formData?.monthlySalaryRange ||
+        (formData as any)?.monthlyIncome?.toString() ||
+        "",
       occupation: formData?.occupation || "Salaried",
       salaryReceivedIn: formData?.salaryReceivedIn || "Bank Transfer",
       city: formData?.city || "",
-    }
-  })
+    },
+  });
 
   // The `formData` prop is built as an inline object literal by the parent, so it is a
   // NEW object on every parent render even when nothing in it changed. Depending on its
   // identity meant reset() ran on every render and threw away whatever the customer had
   // picked — the purpose-of-loan dropdown emptying itself was this. Comparing the values
   // instead means a reset only happens when the incoming values genuinely differ.
-  const lastAppliedRef = React.useRef<string | null>(null)
+  const lastAppliedRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
-    if (!formData) return
+    if (!formData) return;
 
     const incoming = {
       loanAmount: formData.loanAmount || undefined,
       purposeOfLoan: formData.purposeOfLoan || "",
-      monthlySalaryRange: formData.monthlySalaryRange || (formData as any).monthlyIncome?.toString() || "",
+      monthlySalaryRange:
+        formData.monthlySalaryRange ||
+        (formData as any).monthlyIncome?.toString() ||
+        "",
       occupation: formData.occupation || "Salaried",
       salaryReceivedIn: formData.salaryReceivedIn || "Bank Transfer",
       city: formData.city || "",
-    }
+    };
 
-    const signature = JSON.stringify(incoming)
-    if (signature === lastAppliedRef.current) return
-    lastAppliedRef.current = signature
+    const signature = JSON.stringify(incoming);
+    if (signature === lastAppliedRef.current) return;
+    lastAppliedRef.current = signature;
 
-    reset(incoming)
+    reset(incoming);
     if (incoming.loanAmount || incoming.city || incoming.purposeOfLoan) {
       setTimeout(() => {
-        trigger()
-      }, 0)
+        trigger();
+      }, 0);
     }
-  }, [formData, reset, trigger])
+  }, [formData, reset, trigger]);
 
   // We explicitly watch out for specific custom UI behaviors
-  const salaryReceivedIn = watch("salaryReceivedIn")
+  const salaryReceivedIn = watch("salaryReceivedIn");
 
   // Live salary check so we can TELL the user why they can't proceed.
   // (RHF's cross-field error can lag when only the loan amount changes, so we
   // compute this directly from the current values instead of relying on it.)
-  const watchedLoanAmount = watch("loanAmount")
-  const watchedSalary = watch("monthlySalaryRange")
-  const salaryNum = Number(String(watchedSalary ?? "").replace(/\D/g, ""))
+  const watchedLoanAmount = watch("loanAmount");
+  const watchedSalary = watch("monthlySalaryRange");
+  const salaryNum = Number(String(watchedSalary ?? "").replace(/\D/g, ""));
   const requiredSalary =
-    typeof watchedLoanAmount === "number" ? getRequiredMonthlySalary(watchedLoanAmount) : 0
+    typeof watchedLoanAmount === "number"
+      ? getRequiredMonthlySalary(watchedLoanAmount)
+      : 0;
   const isSalaryTooLow =
     typeof watchedLoanAmount === "number" &&
     String(watchedSalary ?? "").trim() !== "" &&
     !Number.isNaN(salaryNum) &&
-    salaryNum < requiredSalary
+    salaryNum < requiredSalary;
   // Below the absolute floor we say so plainly instead of quoting a
   // loan-amount-specific figure the user would have to work out for themselves.
-  const isBelowMinSalary = isSalaryTooLow && salaryNum < MIN_MONTHLY_SALARY
+  const isBelowMinSalary = isSalaryTooLow && salaryNum < MIN_MONTHLY_SALARY;
 
   // Text inputs with digit-only filtering: type="number" lets mouse-wheel
   // scrolling change the value accidentally, so we use text + numeric keypad
   // while keeping the payload types unchanged (loanAmount: number, salary: string)
   const loanAmountField = register("loanAmount", {
     setValueAs: (v) => {
-      const digits = String(v ?? "").replace(/\D/g, "")
-      return digits === "" ? undefined : Number(digits)
+      const digits = String(v ?? "").replace(/\D/g, "");
+      return digits === "" ? undefined : Number(digits);
     },
-  })
-  const salaryField = register("monthlySalaryRange")
+  });
+  const salaryField = register("monthlySalaryRange");
   const sanitizeDigits = (e: React.ChangeEvent<HTMLInputElement>) => {
-    e.target.value = e.target.value.replace(/\D/g, "")
-  }
+    e.target.value = e.target.value.replace(/\D/g, "");
+  };
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 form-fade-in">
       <div className="space-y-6">
-
         {/* Step Info Box */}
         <div className="bg-red-50 rounded-xl p-4 flex items-start space-x-4 border border-red-100 mb-6">
           <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center shrink-0 border border-red-200">
             <FileText className="w-6 h-6 text-red-600" />
             <div className="absolute ml-5 mt-5 bg-white rounded-full">
-              <span className="text-red-500 font-bold block bg-white rounded-full border border-red-200 w-4 h-4 flex items-center justify-center text-[10px]">₹</span>
+              <span className="text-red-500 font-bold block bg-white rounded-full border border-red-200 w-4 h-4 flex items-center justify-center text-[10px]">
+                ₹
+              </span>
             </div>
           </div>
           <div>
-            <div className="text-sm font-bold text-red-600 mb-0.5">{stepLabel}</div>
-            <h2 className="text-lg sm:text-xl font-bold text-[#1c2b4f] leading-tight mb-1">Tell Us Your Loan & Income Details</h2>
-            <p className="text-xs text-gray-500 font-medium leading-relaxed mt-1">This helps us check your eligibility and give instant approval.</p>
+            <div className="text-sm font-bold text-red-600 mb-0.5">
+              {stepLabel}
+            </div>
+            <h2 className="text-lg sm:text-xl font-bold text-[#1c2b4f] leading-tight mb-1">
+              Tell Us Your Loan & Income Details
+            </h2>
+            <p className="text-xs text-gray-500 font-medium leading-relaxed mt-1">
+              This helps us check your eligibility and give instant approval.
+            </p>
           </div>
         </div>
 
@@ -139,8 +183,8 @@ export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfile
               maxLength={7}
               placeholder="Enter Loan Amount"
               onChange={(e) => {
-                sanitizeDigits(e)
-                loanAmountField.onChange(e)
+                sanitizeDigits(e);
+                loanAmountField.onChange(e);
               }}
               className="pl-10 h-12 text-base shadow-sm focus-visible:ring-red-600 border-gray-300"
             />
@@ -149,7 +193,11 @@ export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfile
             <span>Minimum: ₹5,000</span>
             <span>Maximum: ₹1,50,000</span>
           </div>
-          {errors.loanAmount && <p className="text-red-500 text-sm mt-1">{errors.loanAmount.message}</p>}
+          {errors.loanAmount && (
+            <p className="text-red-500 text-sm mt-1">
+              {errors.loanAmount.message}
+            </p>
+          )}
         </div>
 
         {/* Purpose of Loan */}
@@ -165,7 +213,9 @@ export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfile
             defaultValue=""
             className="w-full h-12 px-4 shadow-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-red-600 text-gray-700"
           >
-            <option value="" disabled>Select Purpose of Loan</option>
+            <option value="" disabled>
+              Select Purpose of Loan
+            </option>
             <option value="Medical Emergency">Medical Emergency</option>
             <option value="Education">Education</option>
             <option value="Wedding">Wedding</option>
@@ -173,7 +223,11 @@ export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfile
             <option value="Travel">Travel</option>
             <option value="Other">Personal</option>
           </select>
-          {errors.purposeOfLoan && <p className="text-red-500 text-sm mt-1">{errors.purposeOfLoan.message}</p>}
+          {errors.purposeOfLoan && (
+            <p className="text-red-500 text-sm mt-1">
+              {errors.purposeOfLoan.message}
+            </p>
+          )}
         </div>
 
         {/* Occupation */}
@@ -192,11 +246,17 @@ export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfile
               defaultValue=""
               className="w-full h-12 px-4 shadow-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-red-600 text-gray-700"
             >
-              <option value="" disabled>Select Occupation</option>
+              <option value="" disabled>
+                Select Occupation
+              </option>
               <option value="Salaried">Salaried Employee</option>
               <option value="Self Employed">Self Employed</option>
             </select>
-            {errors.occupation && <p className="text-red-500 text-sm mt-1">{errors.occupation.message}</p>}
+            {errors.occupation && (
+              <p className="text-red-500 text-sm mt-1">
+                {errors.occupation.message}
+              </p>
+            )}
           </div>
         )}
 
@@ -224,8 +284,8 @@ export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfile
               }
             }}
             onChange={(e) => {
-              sanitizeDigits(e)
-              salaryField.onChange(e)
+              sanitizeDigits(e);
+              salaryField.onChange(e);
             }}
             className="w-full h-12 px-4 shadow-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-red-600 text-gray-700"
           />
@@ -248,11 +308,13 @@ export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfile
               {isBelowMinSalary ? (
                 <>
                   <p className="text-red-600 text-sm font-medium">
-                    Minimum monthly salary should be ₹{MIN_MONTHLY_SALARY.toLocaleString("en-IN")}.
+                    Minimum monthly salary should be ₹
+                    {MIN_MONTHLY_SALARY.toLocaleString("en-IN")}.
                   </p>
                   <p className="text-red-500 text-xs mt-1 leading-relaxed">
                     We can only offer a loan if your monthly salary is at least
-                    ₹{MIN_MONTHLY_SALARY.toLocaleString("en-IN")}, even for the minimum loan amount of ₹5,000.
+                    ₹{MIN_MONTHLY_SALARY.toLocaleString("en-IN")}, even for the
+                    minimum loan amount of ₹5,000.
                   </p>
                 </>
               ) : (
@@ -261,9 +323,11 @@ export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfile
                     Your monthly income is too low for this loan amount.
                   </p>
                   <p className="text-red-500 text-xs mt-1 leading-relaxed">
-                    To apply for a loan of ₹{(watchedLoanAmount ?? 0).toLocaleString("en-IN")}, your monthly salary
-                    must be at least ₹{requiredSalary.toLocaleString("en-IN")}.
-                    Please increase your monthly salary or reduce the loan amount.
+                    To apply for a loan of ₹
+                    {(watchedLoanAmount ?? 0).toLocaleString("en-IN")}, your
+                    monthly salary must be at least ₹
+                    {requiredSalary.toLocaleString("en-IN")}. Please increase
+                    your monthly salary or reduce the loan amount.
                   </p>
                 </>
               )}
@@ -284,27 +348,38 @@ export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfile
             </div>
             <div className="grid grid-cols-3 gap-2">
               {[
-                { id: 'Cash', icon: Banknote, label: 'Cash' },
-                { id: 'Bank Transfer', icon: Landmark, label: 'Bank Transfer' },
-                { id: 'Cheque', icon: CreditCard, label: 'Cheque' },
+                { id: "Cash", icon: Banknote, label: "Cash" },
+                { id: "Bank Transfer", icon: Landmark, label: "Bank Transfer" },
+                { id: "Cheque", icon: CreditCard, label: "Cheque" },
               ].map((option) => (
                 <button
                   key={option.id}
                   type="button"
-                  onClick={() => setValue("salaryReceivedIn", option.id as any, { shouldValidate: true })}
-                  className={`flex flex-col items-center justify-center p-3 sm:py-4 rounded-xl border sm:text-sm text-xs transition-colors font-medium h-24 ${salaryReceivedIn === option.id
-                    ? 'bg-[#eef2ff] border-[#c7d2fe] text-blue-700'
-                    : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
-                    }`}
+                  onClick={() =>
+                    setValue("salaryReceivedIn", option.id as any, {
+                      shouldValidate: true,
+                    })
+                  }
+                  className={`flex flex-col items-center justify-center p-3 sm:py-4 rounded-xl border sm:text-sm text-xs transition-colors font-medium h-24 ${
+                    salaryReceivedIn === option.id
+                      ? "bg-[#eef2ff] border-[#c7d2fe] text-blue-700"
+                      : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"
+                  }`}
                 >
-                  <option.icon className={`w-6 h-6 mb-2 ${salaryReceivedIn === option.id ? 'text-blue-600' : 'text-blue-400'}`} />
+                  <option.icon
+                    className={`w-6 h-6 mb-2 ${salaryReceivedIn === option.id ? "text-blue-600" : "text-blue-400"}`}
+                  />
                   <span className="text-center">{option.label}</span>
                 </button>
               ))}
             </div>
             {/* Hidden input to register it */}
             <input type="hidden" {...register("salaryReceivedIn")} />
-            {errors.salaryReceivedIn && <p className="text-red-500 text-sm mt-2">{errors.salaryReceivedIn.message}</p>}
+            {errors.salaryReceivedIn && (
+              <p className="text-red-500 text-sm mt-2">
+                {errors.salaryReceivedIn.message}
+              </p>
+            )}
           </div>
         )}
 
@@ -320,7 +395,9 @@ export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfile
             defaultValue=""
             className="w-full h-12 px-4 shadow-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-red-600 text-gray-700"
           >
-            <option value="" disabled>Select City</option>
+            <option value="" disabled>
+              Select City
+            </option>
             <option value="Mumbai">Mumbai</option>
             <option value="Delhi">Delhi</option>
             <option value="Bangalore">Bangalore</option>
@@ -330,6 +407,7 @@ export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfile
             <option value="Kolkata">Kolkata</option>
             <option value="Pune">Pune</option>
             <option value="Chandigarh">Chandigarh</option>
+            <option value="Coimbatore">Coimbatore</option>
             <option value="Lucknow">Lucknow</option>
             <option value="Patna">Patna</option>
             <option value="Bhubaneswar">Bhubaneswar</option>
@@ -337,20 +415,27 @@ export function Step0EligibilityCheck({ onSubmit, isLoading, formData, isProfile
             <option value="Indore">Indore</option>
             <option value="Others">Others</option>
           </select>
-          {errors.city && <p className="text-red-500 text-sm mt-1">{errors.city.message}</p>}
+          {errors.city && (
+            <p className="text-red-500 text-sm mt-1">{errors.city.message}</p>
+          )}
         </div>
 
         <div className="pt-4">
-          <Button type="submit" className="w-full bg-[#c81e1e] hover:bg-red-700 text-white h-14 rounded-xl text-lg font-bold shadow-md transition-all" disabled={isLoading || !isValid}>
+          <Button
+            type="submit"
+            className="w-full bg-[#c81e1e] hover:bg-red-700 text-white h-14 rounded-xl text-lg font-bold shadow-md transition-all"
+            disabled={isLoading || !isValid}
+          >
             {isLoading ? "Checking..." : "Check Loan Eligibility"}
           </Button>
           <div className="text-center mt-4">
             <span className="flex items-center justify-center text-xs text-gray-500 font-medium opacity-80">
-              <Lock className="w-3 h-3 mr-1 text-green-600" /> Your information is secure and encrypted
+              <Lock className="w-3 h-3 mr-1 text-green-600" /> Your information
+              is secure and encrypted
             </span>
           </div>
         </div>
       </div>
     </form>
-  )
+  );
 }

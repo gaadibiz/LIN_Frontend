@@ -27,8 +27,12 @@ export default function Footer() {
   const [phoneInput, setPhoneInput] = useState("");
 
   useEffect(() => {
-    const userToken = typeof window !== "undefined" ? localStorage.getItem("authToken") : null;
-    const partnerToken = typeof window !== "undefined" ? localStorage.getItem("partnerAuthToken") : null;
+    const userToken =
+      typeof window !== "undefined" ? localStorage.getItem("authToken") : null;
+    const partnerToken =
+      typeof window !== "undefined"
+        ? localStorage.getItem("partnerAuthToken")
+        : null;
     setIsLoggedIn(!!(userToken || partnerToken));
   }, []);
 
@@ -36,7 +40,10 @@ export default function Footer() {
     e.preventDefault();
     const cleanDigits = phoneInput.replace(/\D/g, "").slice(-10);
     const targetPath = isLoggedIn ? "/apply-now" : "/signup";
-    const url = cleanDigits.length === 10 ? `${targetPath}?phone=${cleanDigits}` : targetPath;
+    const url =
+      cleanDigits.length === 10
+        ? `${targetPath}?phone=${cleanDigits}`
+        : targetPath;
     router.push(getLinkWithRef(url));
   };
 
@@ -56,13 +63,17 @@ export default function Footer() {
                 Need Fast Cash? Get Loans Up to ₹1,50,000
               </h3>
               <p className="text-sm text-gray-600 max-w-xl leading-relaxed">
-                100% digital, zero physical paperwork, and direct bank disbursal within 30 minutes.
+                100% digital, zero physical paperwork, and direct bank disbursal
+                within 30 minutes.
               </p>
             </div>
 
             {/* Right Quick Mobile Input */}
             <div className="lg:col-span-5">
-              <form onSubmit={handleQuickApply} className="flex flex-col sm:flex-row gap-2.5">
+              <form
+                onSubmit={handleQuickApply}
+                className="flex flex-col sm:flex-row gap-2.5"
+              >
                 <div className="relative flex-1">
                   <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 font-semibold text-sm">
                     +91
@@ -73,7 +84,9 @@ export default function Footer() {
                     pattern="[0-9]*"
                     maxLength={10}
                     value={phoneInput}
-                    onChange={(e) => setPhoneInput(e.target.value.replace(/\D/g, ""))}
+                    onChange={(e) =>
+                      setPhoneInput(e.target.value.replace(/\D/g, ""))
+                    }
                     placeholder="Enter mobile number"
                     className="pl-12 h-11 bg-gray-50/70 border-gray-300 rounded-xl text-sm focus-visible:ring-primary focus-visible:border-primary"
                   />
@@ -124,8 +137,9 @@ export default function Footer() {
                 className="h-12 w-auto"
               />
               <p className="text-sm text-gray-600 mt-3 leading-relaxed">
-                LoanInNeed is India&apos;s trusted digital lending platform providing instant personal loans
-                at fair interest rates with minimal documentation and complete transparency.
+                LoanInNeed is India&apos;s trusted digital lending platform
+                providing instant personal loans at fair interest rates with
+                minimal documentation and complete transparency.
               </p>
             </div>
 
@@ -138,7 +152,13 @@ export default function Footer() {
                 className="w-9 h-9 rounded-full bg-white border border-gray-200 shadow-xs flex items-center justify-center hover:border-red-300 hover:bg-red-50 transition-colors"
                 aria-label="Instagram"
               >
-                <Image src="/instagram.png" alt="Instagram" width={18} height={18} className="h-4.5 w-4.5" />
+                <Image
+                  src="/instagram.png"
+                  alt="Instagram"
+                  width={18}
+                  height={18}
+                  className="h-4.5 w-4.5"
+                />
               </Link>
               <Link
                 href="https://www.facebook.com/loaninneed01/"
@@ -147,7 +167,13 @@ export default function Footer() {
                 className="w-9 h-9 rounded-full bg-white border border-gray-200 shadow-xs flex items-center justify-center hover:border-red-300 hover:bg-red-50 transition-colors"
                 aria-label="Facebook"
               >
-                <Image src="/facebook.png" alt="Facebook" width={18} height={18} className="h-4.5 w-4.5" />
+                <Image
+                  src="/facebook.png"
+                  alt="Facebook"
+                  width={18}
+                  height={18}
+                  className="h-4.5 w-4.5"
+                />
               </Link>
               <Link
                 href="https://www.linkedin.com/company/loan-in-need/posts/?feedView=all"
@@ -156,7 +182,13 @@ export default function Footer() {
                 className="w-9 h-9 rounded-full bg-white border border-gray-200 shadow-xs flex items-center justify-center hover:border-red-300 hover:bg-red-50 transition-colors"
                 aria-label="LinkedIn"
               >
-                <Image src="/linkedin.png" alt="LinkedIn" width={18} height={18} className="h-4.5 w-4.5" />
+                <Image
+                  src="/linkedin.png"
+                  alt="LinkedIn"
+                  width={18}
+                  height={18}
+                  className="h-4.5 w-4.5"
+                />
               </Link>
               <Link
                 href="https://x.com/loaninneed?"
@@ -165,7 +197,13 @@ export default function Footer() {
                 className="w-9 h-9 rounded-full bg-white border border-gray-200 shadow-xs flex items-center justify-center hover:border-red-300 hover:bg-red-50 transition-colors"
                 aria-label="Twitter / X"
               >
-                <Image src="/twitter.png" alt="Twitter" width={18} height={18} className="h-4.5 w-4.5" />
+                <Image
+                  src="/twitter.png"
+                  alt="Twitter"
+                  width={18}
+                  height={18}
+                  className="h-4.5 w-4.5"
+                />
               </Link>
             </div>
 
@@ -174,18 +212,24 @@ export default function Footer() {
               <div className="flex items-start gap-2.5">
                 <Building2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                 <div>
-                  <h4 className="font-semibold text-gray-900 mb-0.5">Registered Office</h4>
+                  <h4 className="font-semibold text-gray-900 mb-0.5">
+                    Registered Office
+                  </h4>
                   <address className="not-italic leading-relaxed">
-                    505, 5th Floor, Mangal Tower, Old H.B. Road, Ranchi – 834001, Jharkhand (India)
+                    505, 5th Floor, Mangal Tower, Old H.B. Road, Ranchi –
+                    834001, Jharkhand (India)
                   </address>
                 </div>
               </div>
               <div className="flex items-start gap-2.5">
                 <MapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                 <div>
-                  <h4 className="font-semibold text-gray-900 mb-0.5">Corporate Office</h4>
+                  <h4 className="font-semibold text-gray-900 mb-0.5">
+                    Corporate Office
+                  </h4>
                   <address className="not-italic leading-relaxed">
-                    10/1, B.T. Road, South Belgharia, Barrackpore, North 24 Parganas, West Bengal, India – 700056
+                    10/1, B.T. Road, South Belgharia, Barrackpore, North 24
+                    Parganas, West Bengal, India – 700056
                   </address>
                 </div>
               </div>
@@ -194,35 +238,55 @@ export default function Footer() {
 
           {/* Column 2: Useful links (lg:col-span-2) */}
           <div className="lg:col-span-2 space-y-3">
-            <h4 className="font-bold text-[#1c2b4f] text-sm tracking-wide uppercase">Useful links</h4>
+            <h4 className="font-bold text-[#1c2b4f] text-sm tracking-wide uppercase">
+              Useful links
+            </h4>
             <ul className="space-y-2.5 text-sm text-gray-600">
               <li>
-                <Link href="/personal-loan/insta-loan" className="hover:text-primary transition-colors">
+                <Link
+                  href="/personal-loan/insta-loan"
+                  className="hover:text-primary transition-colors"
+                >
                   Insta loans
                 </Link>
               </li>
               <li>
-                <Link href="/track-loan" className="hover:text-primary transition-colors">
+                <Link
+                  href="/track-loan"
+                  className="hover:text-primary transition-colors"
+                >
                   Track loan
                 </Link>
               </li>
               <li>
-                <Link href="/repay-loan" className="hover:text-primary transition-colors">
+                <Link
+                  href="/repay-loan"
+                  className="hover:text-primary transition-colors"
+                >
                   Repay loan
                 </Link>
               </li>
               <li>
-                <Link href="/affiliate-program" className="hover:text-primary transition-colors">
+                <Link
+                  href="/affiliate-program"
+                  className="hover:text-primary transition-colors"
+                >
                   Affiliate Program
                 </Link>
               </li>
               <li>
-                <Link href="/direct-sales-agent" className="hover:text-primary transition-colors">
+                <Link
+                  href="/direct-sales-agent"
+                  className="hover:text-primary transition-colors"
+                >
                   Direct Sales Agent
                 </Link>
               </li>
               <li>
-                <Link href="/business-consultant" className="hover:text-primary transition-colors">
+                <Link
+                  href="/business-consultant"
+                  className="hover:text-primary transition-colors"
+                >
                   Business Consultant
                 </Link>
               </li>
@@ -231,20 +295,31 @@ export default function Footer() {
 
           {/* Column 3: Tools (lg:col-span-2) */}
           <div className="lg:col-span-2 space-y-3">
-            <h4 className="font-bold text-[#1c2b4f] text-sm tracking-wide uppercase">Tools</h4>
+            <h4 className="font-bold text-[#1c2b4f] text-sm tracking-wide uppercase">
+              Tools
+            </h4>
             <ul className="space-y-2.5 text-sm text-gray-600">
               <li>
-                <Link href="/loan-calculators/personal-emi-calculator" className="hover:text-primary transition-colors">
+                <Link
+                  href="/loan-calculators/personal-emi-calculator"
+                  className="hover:text-primary transition-colors"
+                >
                   Personal loan EMI calculator
                 </Link>
               </li>
               <li>
-                <Link href="/loan-calculators/eligibility-loan-calculator" className="hover:text-primary transition-colors">
+                <Link
+                  href="/loan-calculators/eligibility-loan-calculator"
+                  className="hover:text-primary transition-colors"
+                >
                   Eligibility Loan calculator
                 </Link>
               </li>
               <li>
-                <Link href="/loan-calculators/loan-comparison-calculator" className="hover:text-primary transition-colors">
+                <Link
+                  href="/loan-calculators/loan-comparison-calculator"
+                  className="hover:text-primary transition-colors"
+                >
                   Loan comparison calculator
                 </Link>
               </li>
@@ -253,35 +328,55 @@ export default function Footer() {
 
           {/* Column 4: Insta loan by needs (lg:col-span-2) */}
           <div className="lg:col-span-2 space-y-3">
-            <h4 className="font-bold text-[#1c2b4f] text-sm tracking-wide uppercase">Insta loan by needs</h4>
+            <h4 className="font-bold text-[#1c2b4f] text-sm tracking-wide uppercase">
+              Insta loan by needs
+            </h4>
             <ul className="space-y-2.5 text-sm text-gray-600">
               <li>
-                <Link href="/medical-emergency-loan" className="hover:text-primary transition-colors">
+                <Link
+                  href="/medical-emergency-loan"
+                  className="hover:text-primary transition-colors"
+                >
                   Medical emergency loan
                 </Link>
               </li>
               <li>
-                <Link href="/utility-bill-loan" className="hover:text-primary transition-colors">
+                <Link
+                  href="/utility-bill-loan"
+                  className="hover:text-primary transition-colors"
+                >
                   Utility bill loan
                 </Link>
               </li>
               <li>
-                <Link href="/house-rent-loan" className="hover:text-primary transition-colors">
+                <Link
+                  href="/house-rent-loan"
+                  className="hover:text-primary transition-colors"
+                >
                   House rent loan
                 </Link>
               </li>
               <li>
-                <Link href="/daily-expense-loan" className="hover:text-primary transition-colors">
+                <Link
+                  href="/daily-expense-loan"
+                  className="hover:text-primary transition-colors"
+                >
                   Daily expense loan
                 </Link>
               </li>
               <li>
-                <Link href="/education-purpose-loan" className="hover:text-primary transition-colors">
+                <Link
+                  href="/education-purpose-loan"
+                  className="hover:text-primary transition-colors"
+                >
                   Education purpose loan
                 </Link>
               </li>
               <li>
-                <Link href="/debt-consolidation-loan" className="hover:text-primary transition-colors">
+                <Link
+                  href="/debt-consolidation-loan"
+                  className="hover:text-primary transition-colors"
+                >
                   Debt consolidation loan
                 </Link>
               </li>
@@ -290,20 +385,31 @@ export default function Footer() {
 
           {/* Column 5: Company (lg:col-span-2) */}
           <div className="lg:col-span-2 space-y-3">
-            <h4 className="font-bold text-[#1c2b4f] text-sm tracking-wide uppercase">Company</h4>
+            <h4 className="font-bold text-[#1c2b4f] text-sm tracking-wide uppercase">
+              Company
+            </h4>
             <ul className="space-y-2.5 text-sm text-gray-600">
               <li>
-                <Link href="/about-us" className="hover:text-primary transition-colors">
+                <Link
+                  href="/about-us"
+                  className="hover:text-primary transition-colors"
+                >
                   About Us
                 </Link>
               </li>
               <li>
-                <Link href="/blog" className="hover:text-primary transition-colors">
+                <Link
+                  href="/blog"
+                  className="hover:text-primary transition-colors"
+                >
                   Blog
                 </Link>
               </li>
               <li>
-                <Link href="/contact-us" className="hover:text-primary transition-colors">
+                <Link
+                  href="/contact-us"
+                  className="hover:text-primary transition-colors"
+                >
                   Contact us
                 </Link>
               </li>
@@ -313,7 +419,10 @@ export default function Footer() {
             <div className="pt-3 border-t border-red-100/90 text-xs text-gray-600 space-y-2">
               <div className="flex items-center gap-2">
                 <Mail className="w-3.5 h-3.5 text-primary shrink-0" />
-                <a href="mailto:customerservice@loaninneed.in" className="hover:text-primary font-medium truncate">
+                <a
+                  href="mailto:customerservice@loaninneed.in"
+                  className="hover:text-primary font-medium truncate"
+                >
                   customerservice@loaninneed.in
                 </a>
               </div>
@@ -328,41 +437,77 @@ export default function Footer() {
         {/* Popular Service Locations Strip */}
         <div className="pt-6 border-t border-gray-200/80">
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 text-xs text-gray-500">
-            <span className="font-semibold text-gray-700 shrink-0">Popular Locations:</span>
+            <span className="font-semibold text-gray-700 shrink-0">
+              Popular Locations:
+            </span>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-              <Link href="/cities/payday-loan-in-delhi" className="hover:text-primary transition-colors">
+              <Link
+                href="/cities/payday-loan-in-delhi"
+                className="hover:text-primary transition-colors"
+              >
                 Delhi
               </Link>
               <span>•</span>
-              <Link href="/cities/payday-loan-in-mumbai" className="hover:text-primary transition-colors">
+              <Link
+                href="/cities/payday-loan-in-mumbai"
+                className="hover:text-primary transition-colors"
+              >
                 Mumbai
               </Link>
               <span>•</span>
-              <Link href="/cities/payday-loan-in-bengaluru" className="hover:text-primary transition-colors">
+              <Link
+                href="/cities/payday-loan-in-bengaluru"
+                className="hover:text-primary transition-colors"
+              >
                 Bengaluru
               </Link>
               <span>•</span>
-              <Link href="/cities/payday-loan-in-hyderabad" className="hover:text-primary transition-colors">
+              <Link
+                href="/cities/payday-loan-in-hyderabad"
+                className="hover:text-primary transition-colors"
+              >
                 Hyderabad
               </Link>
               <span>•</span>
-              <Link href="/cities/payday-loan-in-pune" className="hover:text-primary transition-colors">
+              <Link
+                href="/cities/payday-loan-in-pune"
+                className="hover:text-primary transition-colors"
+              >
                 Pune
               </Link>
               <span>•</span>
-              <Link href="/cities/payday-loan-in-kolkata" className="hover:text-primary transition-colors">
+              <Link
+                href="/cities/payday-loan-in-kolkata"
+                className="hover:text-primary transition-colors"
+              >
                 Kolkata
               </Link>
               <span>•</span>
-              <Link href="/cities/payday-loan-in-ahmedabad" className="hover:text-primary transition-colors">
+              <Link
+                href="/cities/payday-loan-in-ahmedabad"
+                className="hover:text-primary transition-colors"
+              >
                 Ahmedabad
               </Link>
               <span>•</span>
-              <Link href="/cities/payday-loan-in-chennai" className="hover:text-primary transition-colors">
+              <Link
+                href="/cities/payday-loan-in-chennai"
+                className="hover:text-primary transition-colors"
+              >
                 Chennai
               </Link>
               <span>•</span>
-              <Link href="/cities/payday-loan-in-chandigarh" className="hover:text-primary transition-colors">
+              <Link
+                href="/cities/payday-loan-in-coimbatore"
+                className="hover:text-primary transition-colors"
+              >
+                Coimbatore
+              </Link>
+              <span>•</span>
+              <Link
+                href="/cities/payday-loan-in-chandigarh"
+                className="hover:text-primary transition-colors"
+              >
                 Chandigarh
               </Link>
             </div>
@@ -372,20 +517,32 @@ export default function Footer() {
         {/* Bottom Bar */}
         <div className="border-t border-gray-200/80 pt-6 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-gray-500 text-center md:text-left">
           <p>
-            © {new Date().getFullYear()} Loan In Need. All rights reserved | A Unit of Naveen Finance Pvt Ltd
-            (RBI - Registered NBFC)
+            © {new Date().getFullYear()} Loan In Need. All rights reserved | A
+            Unit of Naveen Finance Pvt Ltd (RBI - Registered NBFC)
           </p>
           <div className="flex flex-wrap justify-center md:justify-end gap-x-5 gap-y-2 font-medium">
-            <Link href="/privacy-policy" className="hover:text-primary transition-colors">
+            <Link
+              href="/privacy-policy"
+              className="hover:text-primary transition-colors"
+            >
               Privacy Policy
             </Link>
-            <Link href="/terms-conditions" className="hover:text-primary transition-colors">
+            <Link
+              href="/terms-conditions"
+              className="hover:text-primary transition-colors"
+            >
               Terms & Conditions
             </Link>
-            <Link href="/refunds-cancellations" className="hover:text-primary transition-colors">
+            <Link
+              href="/refunds-cancellations"
+              className="hover:text-primary transition-colors"
+            >
               Refunds & Cancellation
             </Link>
-            <Link href="/disclaimer" className="hover:text-primary transition-colors">
+            <Link
+              href="/disclaimer"
+              className="hover:text-primary transition-colors"
+            >
               Disclaimer
             </Link>
           </div>
