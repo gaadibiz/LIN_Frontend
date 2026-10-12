@@ -10,14 +10,14 @@ const MAX_5MB = 5 * 1024 * 1024;
 const MAX_2MB = 2 * 1024 * 1024;
 
 // Every applicant must earn at least this much per month, no matter how small
-// the requested loan is (a ₹5,000 loan still needs a ₹20,000 salary).
-export const MIN_MONTHLY_SALARY = 20000;
+// the requested loan is (a ₹5,000 loan still needs a ₹35,000 salary).
+export const MIN_MONTHLY_SALARY = 35000;
 
 // Monthly salary must be at least the required amount:
-// - For loan amounts up to ₹20,000 (e.g. ₹5,000, ₹10,000, ₹20,000), minimum monthly salary is ₹20,000.
-// - For loan amounts above ₹20,000, monthly salary must be at least 140% of the loan amount.
+// - For loan amounts up to ₹35,000 (e.g. ₹5,000, ₹10,000, ₹20,000), minimum monthly salary is ₹35,000.
+// - For loan amounts above ₹35,000, monthly salary must be at least 140% of the loan amount.
 export const getRequiredMonthlySalary = (loanAmount: number) => {
-  if (loanAmount <= 20000) {
+  if (loanAmount <= 35000) {
     return MIN_MONTHLY_SALARY;
   }
   return Math.max(MIN_MONTHLY_SALARY, Math.round(loanAmount * 1.4));
