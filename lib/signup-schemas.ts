@@ -107,7 +107,7 @@ export const personalDetailsSchema = z.object({
     .regex(/^[A-Za-z]{5}\d{4}[A-Za-z]{1}$/, "oops Invalid Pan number"),
   firstName: z
     .string()
-    .min(2, "First name must be at least 2 characters")
+    .min(1, "First name must be at least 1 characters")
     .max(50, "First name must be less than 50 characters")
     .regex(/^[a-zA-Z\s]+$/, "First name can only contain letters and spaces"),
   middleName: z.string().default("").optional(),
