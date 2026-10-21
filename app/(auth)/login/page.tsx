@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { MathCaptcha } from "@/components/ui/math-captcha"
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp"
 import { loginStep1Schema, loginOtpSchema, type LoginStep1Form, type LoginOtpForm } from "@/lib/login-schemas"
 import { useLogin } from "@/hooks/useLogin"
@@ -66,6 +67,8 @@ function LoginForm() {
   const [otpValue, setOtpValue] = useState("")
 
   const [consentChecked, setConsentChecked] = useState(false)
+  const [captchaValid, setCaptchaValid] = useState(false)
+  const [captchaKey, setCaptchaKey] = useState(0)
 
   // Notify user if redirected due to session expiration
   useEffect(() => {
@@ -121,8 +124,14 @@ function LoginForm() {
   }, [step, otpResendTimer])
 
   const handleStep1Submit = async (data: LoginStep1Form) => {
+    if (!captchaValid) {
+      toast.error("Please solve the security check correctly.")
+      return
+    }
     gtag_report_conversion()
     const success = await loginStep1(data)
+    // A captcha answer is only good for one OTP request
+    setCaptchaKey((k) => k + 1)
     if (success) {
       setOtpResendTimer(30)
     }
@@ -180,6 +189,7 @@ function LoginForm() {
   const handleBackToStep1 = () => {
     resetLogin()
     otpForm.reset()
+    setCaptchaKey((k) => k + 1)
   }
 
   const handleOtpChange = (value: string) => {
@@ -272,6 +282,8 @@ function LoginForm() {
                     )}
                   </div>
 
+                  <MathCaptcha onValidChange={setCaptchaValid} resetKey={captchaKey} />
+
                   <div className="flex items-start space-x-3">
                     <input
                       type="checkbox"
@@ -295,7 +307,7 @@ function LoginForm() {
                   <Button
                     type="submit"
                     className="w-full bg-red-600 hover:bg-red-700 text-white h-12"
-                    disabled={!step1Form.formState.isValid || !consentChecked}
+                    disabled={!step1Form.formState.isValid || !consentChecked || !captchaValid || step1Form.formState.isSubmitting}
                   >
                     Get OTP
                   </Button>

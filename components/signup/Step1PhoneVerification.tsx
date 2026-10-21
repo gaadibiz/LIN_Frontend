@@ -8,6 +8,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { MathCaptcha } from "@/components/ui/math-captcha"
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp"
 import { phoneNumberSchema, otpVerificationSchema, type PhoneVerificationForm } from "@/lib/signup-schemas"
 import { Phone, ShieldCheck, Lock } from "lucide-react"
@@ -50,8 +51,15 @@ export function Step1PhoneVerification({
   }, [formData?.phoneNumber, reset, trigger]);
 
   const phoneNumber = watch("phoneNumber")
+  const [captchaValid, setCaptchaValid] = React.useState(false)
+  const [captchaKey, setCaptchaKey] = React.useState(0)
 
   const handleFormSubmit = (data: PhoneVerificationForm) => {
+    if (!otpSent) {
+      if (!captchaValid) return
+      // A captcha answer is only good for one OTP request
+      setCaptchaKey((k) => k + 1)
+    }
     setFormData(data)
     onSubmit(data)
   }
@@ -111,6 +119,10 @@ export function Step1PhoneVerification({
           )}
         </div>
 
+        {!otpSent && (
+          <MathCaptcha onValidChange={setCaptchaValid} resetKey={captchaKey} disabled={isLoading} />
+        )}
+
         {/* OTP Input Section */}
         {otpSent && (
           <div className="bg-[#f5f8ff] rounded-xl p-6 border border-[#e5edff]">
@@ -163,7 +175,7 @@ export function Step1PhoneVerification({
         <Button
           type="submit"
           className="w-full bg-red-600 hover:bg-red-700 text-white h-14 rounded-xl text-lg font-bold shadow-md transition-all"
-          disabled={isLoading || !isValid}
+          disabled={isLoading || !isValid || (!otpSent && !captchaValid)}
         >
           {isLoading ? (otpSent ? 'Verifying...' : 'Sending...') : (otpSent ? 'Verify & Continue' : 'Get OTP')}
         </Button>
