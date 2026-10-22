@@ -131,11 +131,10 @@ export const personalDetailsSchema = z.object({
     .string()
     .min(1, "Email address is required")
     .email("Please enter a valid email address"),
-  professionalEmail: z
-    .string()
-    .min(1, "Professional email is required")
-    .email("Please enter a valid email address")
-    .refine(isOfficialEmail, "Please enter a valid official email id."),
+  professionalEmail: z.string(),
+  // .min(1, "Professional email is required")
+  // .email("Please enter a valid email address")
+  // .refine(isOfficialEmail, "Please enter a valid official email id.")
   aadhaarNumber: z
     .string()
     .length(12, "oops invalid Aadhaar number")

@@ -151,7 +151,9 @@ export function Step2PersonalDetails({
         const res = await apiClient.getCompleteProfile();
         const profile =
           res?.profile || (res as any)?.data?.profile || (res as any)?.data;
-        const targetEmail = profile?.professionalEmail ? String(profile.professionalEmail).trim() : "";
+        const targetEmail = profile?.professionalEmail
+          ? String(profile.professionalEmail).trim()
+          : "";
         if (targetEmail && profile?.professionalEmailVerified) {
           const verifiedEmail = String(targetEmail).trim().toLowerCase();
           verifiedEmailsRef.current.add(verifiedEmail);
@@ -1229,7 +1231,13 @@ export function Step2PersonalDetails({
         {/* Email ID Field (Standard Required Field) */}
         <div className="w-full">
           <label
-            className={cn("block", "text-sm", "font-bold", "text-[#1c2b4f]", "mb-2")}
+            className={cn(
+              "block",
+              "text-sm",
+              "font-bold",
+              "text-[#1c2b4f]",
+              "mb-2",
+            )}
           >
             Email ID <span className="text-red-500">*</span>
           </label>
@@ -1267,7 +1275,8 @@ export function Step2PersonalDetails({
             <label
               className={cn("block", "text-sm", "font-bold", "text-[#1c2b4f]")}
             >
-              Professional Email (Official) <span className="text-red-500">*</span>
+              Professional Email (Official)
+              {/* <span className="text-red-500">*</span> */}
             </label>
             {emailStatus === "verified" ? (
               <span
@@ -1390,7 +1399,8 @@ export function Step2PersonalDetails({
         {/* Full width note for Professional Email */}
         <div className="w-full col-span-1 md:col-span-3 -mt-2">
           <p className="text-gray-500 text-xs font-medium">
-            Please enter an official work email address (for faster loan process, verify your professional email).
+            Please enter an official work email address (for faster loan
+            process, verify your professional email).
           </p>
         </div>
       </div>
