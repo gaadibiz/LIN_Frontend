@@ -42,6 +42,7 @@ import {
   Bookmark,
   RefreshCw,
   ShieldCheck,
+  Copy,
 } from "lucide-react";
 import {
   InputOTP,
@@ -70,6 +71,24 @@ import {
 } from "@/lib/digilocker";
 
 export const dynamic = "force-dynamic";
+
+// Collection account customers repay into, shown on the Repay loan tab.
+const REPAYMENT_DETAILS = [
+  { label: "Account holder", value: "NAVEEN FINANCE PVT LTD", copyable: false },
+  { label: "Bank and branch", value: "IDFC BANK, Dunlop, Kolkata", copyable: false },
+  { label: "Current account no.", value: "10292458665", copyable: true },
+  { label: "IFSC code", value: "IDFB0060145", copyable: true },
+  { label: "UPI ID", value: "naveen8665@idfcbank", copyable: true },
+];
+
+const copyRepaymentDetail = async (detail: { label: string; value: string }) => {
+  try {
+    await navigator.clipboard.writeText(detail.value);
+    toast.success(`${detail.label} copied`);
+  } catch {
+    toast.error("Could not copy. Please copy it manually.");
+  }
+};
 
 function ReloanFlow() {
   const {
@@ -1806,20 +1825,43 @@ function DashboardContent() {
                   {formatApplicationStatus(loan.status)}
                 </span>
               </div> */}
-              {/* Repayment QR and bank details are withheld until the correct
-                  collection account is provided. Nothing here may show a QR, a UPI
-                  ID or an account number in the meantime. */}
-              <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
-                <p className="text-[13px] font-extrabold text-amber-900">
-                  Payment details unavailable
+              {/* Repayment collection account. Text only: there is no QR until
+                  a verified QR for this account is supplied. */}
+              <div className="md:col-span-3 rounded-2xl border border-gray-100 bg-gray-50 p-5 space-y-3">
+                <p className="text-sm font-extrabold text-gray-900">
+                  Payment details
                 </p>
-                <p className="mt-1 text-[12px] font-medium text-amber-800 leading-relaxed">
-                  Please contact customer support on{" "}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 text-sm">
+                  {REPAYMENT_DETAILS.map((detail) => (
+                    <div key={detail.label}>
+                      <p className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                        {detail.label}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-bold text-gray-900 break-all">
+                          {detail.value}
+                        </p>
+                        {detail.copyable && (
+                          <button
+                            type="button"
+                            aria-label={`Copy ${detail.label}`}
+                            onClick={() => copyRepaymentDetail(detail)}
+                            className="text-gray-400 hover:text-gray-900 transition-colors"
+                          >
+                            <Copy size={14} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs font-medium text-gray-500">
+                  Mention your loan reference {loan.number} in the payment
+                  remarks. For help, call{" "}
                   <a href="tel:+919266328731" className="underline font-bold">
                     +91 92663 28731
-                  </a>{" "}
-                  before paying. Do not use any QR code or account number saved
-                  earlier.
+                  </a>
+                  .
                 </p>
               </div>
             </div>
