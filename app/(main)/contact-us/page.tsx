@@ -136,6 +136,16 @@ export default function ContactPage() {
                     West Bengal, India – 700056
                   </address>
                 </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-1">
+                    Branch address
+                  </h3>
+                  <address className="not-italic text-gray-600">
+                    28, Okhla Industrial Estate, Phase III,
+                    <br />
+                    New Delhi – 110020
+                  </address>
+                </div>
               </div>
             </div>
           </div>
