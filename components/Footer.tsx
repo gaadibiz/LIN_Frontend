@@ -233,6 +233,17 @@ export default function Footer() {
                   </address>
                 </div>
               </div>
+              <div className="flex items-start gap-2.5">
+                <MapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-0.5">
+                    Branch Office
+                  </h4>
+                  <address className="not-italic leading-relaxed">
+                    28, Okhla Industrial Estate, Phase III, New Delhi – 110020
+                  </address>
+                </div>
+              </div>
             </div>
           </div>
 
