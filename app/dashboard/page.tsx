@@ -1914,6 +1914,7 @@ function DashboardContent() {
                   >
                     <td className="px-8 py-6 text-[15px] font-bold text-gray-900 flex flex-col items-start gap-1">
                       <span>{loan.number}</span>
+                      {/* Status badge hidden from Loan History.
                       <span
                         className={`text-[11px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider
                                                 ${
@@ -1930,7 +1931,7 @@ function DashboardContent() {
                                                 }`}
                       >
                         {formatApplicationStatus(loan.status)}
-                      </span>
+                      </span> */}
                     </td>
                     <td className="px-8 py-6">
                       <div className="flex flex-col">
