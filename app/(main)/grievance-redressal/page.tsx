@@ -423,13 +423,21 @@ export default function GrievanceRedressalPage() {
             </AccordionTrigger>
             <AccordionContent>
               <address className="not-italic rounded-xl bg-gray-50 p-4 text-base text-gray-700">
-                Centralised Receipt and Processing Centre (CRPC),
+                C/o Reserve Bank of India,
                 <br />
-                4th Floor, Reserve Bank of India,
+                Fourth Floor, Pragati Sadan,
                 <br />
-                Sector-17, Central Vista,
+                RRDA Building, Kutchery Chowk,
                 <br />
-                Chandigarh – 160017
+                Ranchi – 834001, Jharkhand
+                <br />
+                Tel:{" "}
+                <a
+                  href="tel:+916512210512"
+                  className="text-red-500 hover:underline"
+                >
+                  +91 651 2210512
+                </a>
               </address>
             </AccordionContent>
           </AccordionItem>
