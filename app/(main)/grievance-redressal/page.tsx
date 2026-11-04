@@ -423,7 +423,7 @@ export default function GrievanceRedressalPage() {
             </AccordionTrigger>
             <AccordionContent>
               <address className="not-italic rounded-xl bg-gray-50 p-4 text-base text-gray-700">
-                C/o Reserve Bank of India,
+                Reserve Bank of India,
                 <br />
                 Fourth Floor, Pragati Sadan,
                 <br />
