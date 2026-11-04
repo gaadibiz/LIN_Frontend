@@ -347,6 +347,11 @@ export default function Navbar() {
                           Track loan
                         </Link>
                       </li>
+                      <li>
+                        <Link href={getLinkWithRef("/grievance-redressal")}>
+                          Grievance redressal
+                        </Link>
+                      </li>
                     </ul>
                   </NavigationMenuContent>
                 </NavigationMenuItem>
@@ -575,6 +580,12 @@ export default function Navbar() {
                             className="text-sm text-gray-700 py-1.5 hover:text-primary transition-colors"
                           >
                             Track Loan
+                          </MobileLink>
+                          <MobileLink
+                            href="/grievance-redressal"
+                            className="text-sm text-gray-700 py-1.5 hover:text-primary transition-colors"
+                          >
+                            Grievance Redressal
                           </MobileLink>
                         </div>
                       </AccordionContent>
