@@ -117,11 +117,11 @@ export default function ContactPage() {
                     Registered address
                   </h3>
                   <address className="not-italic text-gray-600">
-                    505, 5th Floor, Mangal Tower,
+                    803 Mahabir Tower, Main Road,
                     <br />
-                    Old H.B. Road, Ranchi – 834001,
+                    Hindpiri, Ranchi,
                     <br />
-                    Jharkhand (India)
+                    Jharkhand – 834001
                   </address>
                 </div>
                 <div>

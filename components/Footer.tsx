@@ -216,8 +216,8 @@ export default function Footer() {
                     Registered Office
                   </h4>
                   <address className="not-italic leading-relaxed">
-                    505, 5th Floor, Mangal Tower, Old H.B. Road, Ranchi –
-                    834001, Jharkhand (India)
+                    803 Mahabir Tower, Main Road, Hindpiri, Ranchi, Jharkhand –
+                    834001
                   </address>
                 </div>
               </div>
